@@ -9,10 +9,11 @@
   <include filename = "../license.xml" />
 
   <grammar>
-    tpq     = hello *( one | many ) [ goodbye ]
+    tpq     = hello *( one | many | block ) [ goodbye ]
     hello   = C:HELLO  ( S:HELLO-OK / S:INVALID / S:FAILED )
     one     = C:ONE    ( S:TPSETS   / S:INVALID / S:FAILED )
     many    = C:MANY   ( S:TPSETS   / S:INVALID / S:FAILED )
+    block   = C:BLOCK  ( S:TPSETS   / S:INVALID / S:FAILED )
     heartbeat = C:PING S:PONG
     goodbye = C:GOODBYE ( S:GOODBYE-OK / S:INVALID / S:FAILED )
   </grammar>
@@ -21,6 +22,7 @@
     Greet a server.
     <field name = "nickname" type = "string">Client nickname</field>
   </message>
+
   <message name = "HELLO OK">
     Server return greeting.
     <field name = "nickname" type = "string">Client nickname</field>
@@ -28,14 +30,71 @@
   
   <message name = "ONE">
     Request based on one detid and one tstart.
-    <field name = "detid" type = "number" size = "4"/>
-    <field name = "tstart" type = "number" size = "8"/>
+    <field name = "detid" type = "number" size = "4">
+      A detid mask, matched via logical AND.
+    </field>
+    <field name = "tstart" type = "number" size = "8">
+      A tstart value matched via binning.
+    </field>
   </message>
 
   <message name = "MANY">
     Request based on multiple detids and tstarts.
-    <field name = "detids" type = "list" />
-    <field name = "tstarts" type = "list" />
+    <field name = "detids" type = "chunk" >
+      An array of 4 byte integers giving detids to match via logical AND.
+    </field>
+    <field name = "tstarts" type = "chunk" >
+      An array of 8 byte integers giving tstarts to match via binned.
+    </field>
   </message>
+
+  <message name = "BLOCK">
+    Request a block of TPSets based on one detid, one tstart and a tspan.
+    <field name = "detid" type = "number" size = "4">
+      A detid mask, matched via logical AND.
+    </field>
+    <field name = "tstart" type = "number" size = "8">
+      A tstart value matched via binning.
+    </field>
+    <field name = "tspan" type = "number" size = "8">
+      A tspan value matched via binning.
+    </field>
+  </message>
+
+  <message name = "PING"/>
+  <message name = "PONG"/>
+  <message name = "GOODBYE"/>
+  <message name = "GOODBYE OK"/>
+
+  <message name = "ERROR">
+    Command failed for some specific reason
+    <field name = "status" type = "number" size = "2">
+      3-digit status code
+    </field>
+    <field name = "reason" type = "string">
+      Printable explanation
+    </field>
+  </message>
+
+  <!-- Success codes -->
+  <define name = "SUCCESS" value = "200" />
+  <define name = "STORED" value = "201" />
+  <define name = "DELIVERED" value = "202" />
+
+  <!-- Temporary errors -->
+  <define name = "NOT DELIVERED" value = "300" />
+  <define name = "CONTENT TOO LARGE" value = "301" />
+  <define name = "TIMEOUT EXPIRED" value = "302" />
+  <define name = "CONNECTION REFUSED" value = "303" />
+
+  <!-- Application errors -->
+  <define name = "RESOURCE LOCKED" value = "400" />
+  <define name = "ACCESS REFUSED" value = "401" />
+  <define name = "NOT FOUND" value = "404" />
+
+  <!-- System errors -->
+  <define name = "COMMAND INVALID" value = "500" />
+  <define name = "NOT IMPLEMENTED" value = "501" />
+  <define name = "INTERNAL ERROR" value = "502" />
 
 </class>

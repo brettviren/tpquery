@@ -23,6 +23,7 @@
   <class name = "tpq_server" />
   <class name = "tpq_client" />
   -->
+  <model name = "tpq_codec" />
 
   <target name = "autotools" />
 
