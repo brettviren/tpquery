@@ -1,0 +1,41 @@
+<class
+    name = "tpq_codec"
+    title = "Trigger Primitive Queue Codec"
+    script = "zproto_codec_c"
+    package_dir = "../include"
+    header_ext = "hpp"
+    source_ext = "cpp"
+    >
+  <include filename = "../license.xml" />
+
+  <grammar>
+    tpq     = hello *( one | many ) [ goodbye ]
+    hello   = C:HELLO  ( S:HELLO-OK / S:INVALID / S:FAILED )
+    one     = C:ONE    ( S:TPSETS   / S:INVALID / S:FAILED )
+    many    = C:MANY   ( S:TPSETS   / S:INVALID / S:FAILED )
+    heartbeat = C:PING S:PONG
+    goodbye = C:GOODBYE ( S:GOODBYE-OK / S:INVALID / S:FAILED )
+  </grammar>
+
+  <message name = "HELLO">
+    Greet a server.
+    <field name = "nickname" type = "string">Client nickname</field>
+  </message>
+  <message name = "HELLO OK">
+    Server return greeting.
+    <field name = "nickname" type = "string">Client nickname</field>
+  </message>
+  
+  <message name = "ONE">
+    Request based on one detid and one tstart.
+    <field name = "detid" type = "number" size = "4"/>
+    <field name = "tstart" type = "number" size = "8"/>
+  </message>
+
+  <message name = "MANY">
+    Request based on multiple detids and tstarts.
+    <field name = "detids" type = "list" />
+    <field name = "tstarts" type = "list" />
+  </message>
+
+</class>
