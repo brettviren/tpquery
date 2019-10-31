@@ -1,0 +1,24 @@
+#+title: PTMP Services
+
+This package provides clients and servers that work with [[https://github.com/brettviren/ptmp][PTMP]].
+
+* Installation
+
+Usual.
+
+* Concepts
+
+The trigger primitive queue (TPQ) provides ordered and random access
+to recent sets of trigger primitives.  The TPQ server receives ~TPSet~
+messages from a number of PTMP sources, buffers them indexed by their
+~TPSet.detid~ and ~TPSet.tstart~ values, and provides them to clients on
+request based on queries against these indices.  A ~detid~ match is
+performed with a logical AND.  A ~tstart~ is matched to a resolution as
+configured by the server.  A query may return zero, one or more ~TPSet~
+messages.  The server keeps its input ~TPSet~ messages invariant.
+
+* Client 
+
+* Server
+
+

@@ -1,0 +1,30 @@
+<project
+    name = "tpquery"
+    script = "zproject.gsl"
+    description = "Services for PTMP"
+    email = "bv@bnl.gov"
+    license = "LGPL 3"
+    url = "https://github.com/brettviren/tpquery"
+    repository = "https://github.com/brettviren/tpquery.git"
+    >
+  <include filename = "license.xml" />
+
+  <use project = "czmq" />
+  <!-- 
+  <use project = "ptmp" />
+  -->
+  <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
+                 pkgincludedir = "false" keep-tree = "true" pretty-print = "no"
+                 source-extension = "cpp" header-extension = "hpp" />
+  
+  
+  <class name = "tpq_codec" />
+  <!-- 
+  <class name = "tpq_server" />
+  <class name = "tpq_client" />
+  -->
+
+  <target name = "autotools" />
+
+</project>
+    
