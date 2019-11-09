@@ -13,6 +13,8 @@
 # Ignore the source doc texts generated from program sources
 tpq_codec.txt
 tpq_codec.doc
+tpq_server.txt
+tpq_server.doc
 
 # Make sure to track the manually maintained project description
 !*.adoc

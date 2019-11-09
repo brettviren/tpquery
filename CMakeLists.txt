@@ -127,6 +127,23 @@ ELSE (CZMQ_FOUND)
 ENDIF (CZMQ_FOUND)
 
 ########################################################################
+# PTMP dependency
+########################################################################
+find_package(ptmp REQUIRED)
+IF (PTMP_FOUND)
+    include_directories(${PTMP_INCLUDE_DIRS})
+    list(APPEND MORE_LIBRARIES ${PTMP_LIBRARIES})
+  IF (PC_PTMP_FOUND)
+      set(pkg_config_names_private "${pkg_config_names_private} ptmp")
+      list(APPEND OPTIONAL_LIBRARIES_STATIC ${PC_PTMP_STATIC_LDFLAGS})
+  ELSE (PC_PTMP_FOUND)
+      set(pkg_config_libs_private "${pkg_config_libs_private} -lptmp")
+  ENDIF (PC_PTMP_FOUND)
+ELSE (PTMP_FOUND)
+    message( FATAL_ERROR "ptmp not found." )
+ENDIF (PTMP_FOUND)
+
+########################################################################
 # version
 ########################################################################
 set(TPQUERY_VERSION_MAJOR 0)
@@ -147,6 +164,7 @@ set (tpquery_headers
 IF (ENABLE_DRAFTS)
     list(APPEND tpquery_headers
         include/tpq_codec.hpp
+        include/tpq_server.hpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -165,6 +183,7 @@ set (tpquery_sources
 IF (ENABLE_DRAFTS)
     list (APPEND tpquery_sources
         src/tpq_codec.cpp
+        src/tpq_server.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -338,6 +357,7 @@ target_link_libraries(
     tpquery
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
+    ${PTMP_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
 endif()
@@ -347,6 +367,7 @@ target_link_libraries(
     tpquery-static
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
+    ${PTMP_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
     ${OPTIONAL_LIBRARIES_STATIC}
 )
@@ -371,6 +392,7 @@ set(TEST_CLASSES
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
     tpq_codec
+    tpq_server
     )
 ENDIF (ENABLE_DRAFTS)
 

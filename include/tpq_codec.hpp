@@ -12,14 +12,7 @@
      * The XML model used for this code generation: tpq_codec.xml, or
      * The code generation script that built this file: zproto_codec_c
     ************************************************************************
-    LICENSE FOR THIS PROJECT IS NOT DEFINED!
-
-    Copyright (C) 2019- by tpquery Developers <bv@bnl.gov>
-
-    Please edit license.xml and populate the 'license' tag with proper
-    copyright and legalese contents, and regenerate the zproject.
-
-    LICENSE FOR THIS PROJECT IS NOT DEFINED!
+    Copyright 2019.  May use and distribute according to LGPL v3 or later.
     =========================================================================
 */
 
@@ -31,21 +24,19 @@
     HELLO - Greet a server.
         nickname            string      Client nickname
 
-    HELLO_OK - Server return greeting.
-        nickname            string      Client nickname
+    COVERAGE - Declare TP input coverage supported by a server.
+        detmask             number 8    Detector ID mask
 
-    ONE - Request based on one detid and one tstart.
-        detid               number 4    A detid mask, matched via logical AND.
-        tstart              number 8    A tstart value matched via binning.
+    QUERY - Request TPSets
+        seqno               number 4    A message sequence number.
+        tstart              number 8    A tstart value.
+        tspan               number 8    A tspan value.
+        detmask             number 8    Detector ID mask
 
-    MANY - Request based on multiple detids and tstarts.
-        detids              chunk       An array of 4 byte integers giving detids to match via logical AND.
-        tstarts             chunk       An array of 8 byte integers giving tstarts to match via binned.
-
-    BLOCK - Request a block of TPSets based on one detid, one tstart and a tspan.
-        detid               number 4    A detid mask, matched via logical AND.
-        tstart              number 8    A tstart value matched via binning.
-        tspan               number 8    A tspan value matched via binning.
+    RESULT -
+        seqno               number 4    A message sequence number.
+        status              number 2    The 3-digit status code related to the result.
+        payload             msg         A msg holding one frame per TPSet.
 
     PING -
 
@@ -61,29 +52,21 @@
 */
 
 #define TPQ_CODEC_SUCCESS                   200
-#define TPQ_CODEC_STORED                    201
-#define TPQ_CODEC_DELIVERED                 202
-#define TPQ_CODEC_NOT_DELIVERED             300
-#define TPQ_CODEC_CONTENT_TOO_LARGE         301
-#define TPQ_CODEC_TIMEOUT_EXPIRED           302
-#define TPQ_CODEC_CONNECTION_REFUSED        303
-#define TPQ_CODEC_RESOURCE_LOCKED           400
-#define TPQ_CODEC_ACCESS_REFUSED            401
+#define TPQ_CODEC_PARTIAL_CONTENT           206
 #define TPQ_CODEC_NOT_FOUND                 404
 #define TPQ_CODEC_COMMAND_INVALID           500
 #define TPQ_CODEC_NOT_IMPLEMENTED           501
 #define TPQ_CODEC_INTERNAL_ERROR            502
 
 #define TPQ_CODEC_HELLO                     1
-#define TPQ_CODEC_HELLO_OK                  2
-#define TPQ_CODEC_ONE                       3
-#define TPQ_CODEC_MANY                      4
-#define TPQ_CODEC_BLOCK                     5
-#define TPQ_CODEC_PING                      6
-#define TPQ_CODEC_PONG                      7
-#define TPQ_CODEC_GOODBYE                   8
-#define TPQ_CODEC_GOODBYE_OK                9
-#define TPQ_CODEC_ERROR                     10
+#define TPQ_CODEC_COVERAGE                  2
+#define TPQ_CODEC_QUERY                     3
+#define TPQ_CODEC_RESULT                    4
+#define TPQ_CODEC_PING                      5
+#define TPQ_CODEC_PONG                      6
+#define TPQ_CODEC_GOODBYE                   7
+#define TPQ_CODEC_GOODBYE_OK                8
+#define TPQ_CODEC_ERROR                     9
 
 #include <czmq.h>
 
@@ -154,37 +137,23 @@ const char *
 void
     tpq_codec_set_nickname (tpq_codec_t *self, const char *value);
 
-//  Get/set the detid field
-uint32_t
-    tpq_codec_detid (tpq_codec_t *self);
+//  Get/set the detmask field
+uint64_t
+    tpq_codec_detmask (tpq_codec_t *self);
 void
-    tpq_codec_set_detid (tpq_codec_t *self, uint32_t detid);
+    tpq_codec_set_detmask (tpq_codec_t *self, uint64_t detmask);
+
+//  Get/set the seqno field
+uint32_t
+    tpq_codec_seqno (tpq_codec_t *self);
+void
+    tpq_codec_set_seqno (tpq_codec_t *self, uint32_t seqno);
 
 //  Get/set the tstart field
 uint64_t
     tpq_codec_tstart (tpq_codec_t *self);
 void
     tpq_codec_set_tstart (tpq_codec_t *self, uint64_t tstart);
-
-//  Get a copy of the detids field
-zchunk_t *
-    tpq_codec_detids (tpq_codec_t *self);
-//  Get the detids field and transfer ownership to caller
-zchunk_t *
-    tpq_codec_get_detids (tpq_codec_t *self);
-//  Set the detids field, transferring ownership from caller
-void
-    tpq_codec_set_detids (tpq_codec_t *self, zchunk_t **chunk_p);
-
-//  Get a copy of the tstarts field
-zchunk_t *
-    tpq_codec_tstarts (tpq_codec_t *self);
-//  Get the tstarts field and transfer ownership to caller
-zchunk_t *
-    tpq_codec_get_tstarts (tpq_codec_t *self);
-//  Set the tstarts field, transferring ownership from caller
-void
-    tpq_codec_set_tstarts (tpq_codec_t *self, zchunk_t **chunk_p);
 
 //  Get/set the tspan field
 uint64_t
@@ -197,6 +166,16 @@ uint16_t
     tpq_codec_status (tpq_codec_t *self);
 void
     tpq_codec_set_status (tpq_codec_t *self, uint16_t status);
+
+//  Get a copy of the payload field
+zmsg_t *
+    tpq_codec_payload (tpq_codec_t *self);
+//  Get the payload field and transfer ownership to caller
+zmsg_t *
+    tpq_codec_get_payload (tpq_codec_t *self);
+//  Set the payload field, transferring ownership from caller
+void
+    tpq_codec_set_payload (tpq_codec_t *self, zmsg_t **msg_p);
 
 //  Get/set the reason field
 const char *

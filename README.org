@@ -8,17 +8,91 @@ Usual.
 
 * Concepts
 
-The trigger primitive queue (TPQ) provides ordered and random access
-to recent sets of trigger primitives.  The TPQ server receives ~TPSet~
-messages from a number of PTMP sources, buffers them indexed by their
-~TPSet.detid~ and ~TPSet.tstart~ values, and provides them to clients on
-request based on queries against these indices.  A ~detid~ match is
-performed with a logical AND.  A ~tstart~ is matched to a resolution as
-configured by the server.  A query may return zero, one or more ~TPSet~
-messages.  The server keeps its input ~TPSet~ messages invariant.
+The trigger primitive queue (TPQ) acts as a random-access ring buffer
+with entries ordered by ~TPSet.tstart~.  ~TPSet~ messages flow into this
+queue and are held for some time.  The queue is limited by a maximum
+number of messages (to avoid memory exhaustion) and thus the its
+entries may span a variable time during operations.
 
-* Client 
+
+
 
 * Server
 
+The ~tpq_server~ is really a kind of broker.  It receives streams of
+~TPSet~ messages from its ingest socket (eg SUB or PULL).  It's server
+socket (ROUTER) accepts queries based on a ~tstart~ and a ~tspan~.  It
+will attempt to return all ~TPSet~ messages that overlap the requested
+time span.
 
+** Input
+
+The server expects ingests streams of messages holding ~TPSet~ payload
+objects.   This stream is required to be ordered by ~TPSet.tstart~.
+
+** Intervals
+
+The queue is based on *data* time intervals (and *not* real-time).
+Intervals are taken as /right-open/ meaning they include the lower bound
+but not their upper bound.  They are specified in terms of data time
+(eg 50 MHz clock ticks) counted as integral values.  An interval is
+defined in terms of a start time (eg ~TPSet.tstart~) and a time span (eg
+~TPSet.tspan~).  Thus an interval with a ~tstart~ of 1000 and a ~tspan~ of
+100 includes all discrete clock counts from 1000 to 1099 inclusive.
+The tick 1100 is outside of the interval and so that interval is not
+overlapping with another with a ~tstart~ of 1100.
+
+The arrow of time points *from* small values ("begin", "left", "before")
+*to* large values ("end", "right", "after").  An interval may be fully
+or partly before or after another depending on if they do not or do
+overlap, respectively.  An interval which is a subset of another is
+said to be "inside".  
+
+The terms /early/ and /late/ may only be used when referring to relative
+real-time events.  An event is /early/ if it occurs before another event
+and vice versa for /late/.  Intervals, per se, are never said to be
+/early/ nor /late/.
+
+
+** Queue
+
+The queue buffers ~TPSet~ objects over a configurable interval.  The
+queue will be purged of older entries as new ones are added.
+
+** Query 
+
+A query requests queued ~TPSet~ objects that have intervals with any
+overlap with a requested interval and which match a given detector ID
+mask.  Satisfying this query confronts an inherent race condition
+involving the (real) time at which a request arrives, the requested
+interval and the current interval covered by the queue.  This race is
+handled differently depending on the overlap.
+
+- if a query interval is inside the queue interval, return immediately
+  with results and status code 200, "success".
+
+- if a query interval is fully before the queue interval (a fully /late/
+  query), return immediately with empty results and status code 404
+  "not found".
+
+- if a query interval is partly before the queue interval (a partly
+  /late/ query), return immediately with partial results and status code
+  206 "partial content".
+
+- if a query interval end is after the queue interval end the server
+  will hold the query until enough new ~TPSet~ objects are ingested such
+  that the queue interval end is after the query interval end.  At
+  that later time, a result will be returned.  At that (real) time, if
+  the query interval is inside the queue interval a status code 200 is
+  returned, else a status code 206 "partial content" is returned.
+
+Upon satisfying an interval query, ~TPSet~ objects are checked against
+the requested detector ID mask and only those which match are
+returned.  This matching will not change the return code.  That is, a
+200 or 206 return may accompany an empty set of ~TPSet~ objects.
+
+If the requested ID mask is not consistent with the server's coverage
+mask an error message is returned immediately (500 "command invalid")
+and no intervals are considered.
+
+* Client 

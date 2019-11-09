@@ -17,7 +17,9 @@ src_libtpquery_la_SOURCES = \
 
 if ENABLE_DRAFTS
 src_libtpquery_la_SOURCES += \
-    src/tpq_codec.cpp
+    src/tpq_codec.cpp \
+    src/tpq_server.cpp \
+    src/tpq_server_engine.inc
 
 endif
 
@@ -55,6 +57,11 @@ src_tpquery_selftest_LDADD = ${program_libs}
 src_tpquery_selftest_SOURCES = src/tpquery_selftest.cpp
 endif #ENABLE_TPQUERY_SELFTEST
 
+# Install api files into /usr/local/share/zproject
+apidir = @datadir@/zproject/tpquery
+dist_api_DATA = \
+    api/tpq_codec.api
+
 # define custom target for all products of /src
 src: \
 		src/tpquery_selftest \
@@ -63,6 +70,7 @@ src: \
 # Produce generated code from models in the src directory
 code:
 	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q tpq_codec.xml
+	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q tpq_server.xml
 	cd $(srcdir); gsl -target:- project.xml
 
 # Directories with test fixtures optionally provided by the project,

@@ -8,7 +8,8 @@ nobase_include_HEADERS = \
 
 if ENABLE_DRAFTS
 nobase_include_HEADERS += \
-    tpq_codec.hpp
+    tpq_codec.hpp \
+    tpq_server.hpp
 
 endif
 

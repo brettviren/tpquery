@@ -329,6 +329,67 @@ dnl END of PKG_CHECK_MODULES and/or direct tests for libczmq
 dnl END of enabled attempts to search for libczmq
 
 
+was_ptmp_check_lib_detected=no
+
+search_ptmp="yes"
+
+AC_ARG_WITH([ptmp],
+    [
+        AS_HELP_STRING([--with-ptmp],
+        [yes or no. Optionally specify ptmp prefix (directory where its include/ and lib/ are located), but that is only used if pkgconfig metadata is not found first])
+    ],
+    [
+        search_ptmp="yes"
+    ],
+    [
+        search_ptmp="yes"
+    ])
+AS_CASE([x"${with_ptmp}"],
+    [xyes], [search_ptmp="yes"],
+    [xno],  [search_ptmp="no"])
+
+dnl We do not abort right now, because the maintainer/developer may have
+dnl something particular in mind, e.g. to build just parts of a project.
+AS_IF([test x"${search_ptmp}" = xno],
+    [AC_MSG_WARN([Required dependency on ptmp was explicitly disabled during configuration by '--with-ptmp=no'; subsequent full build of tpquery may fail])])
+
+AS_IF([test x"${search_ptmp}" = xyes], [
+    # Archive previously detected and supplied flags
+    PRE_SEARCH_CFLAGS="${CFLAGS}"
+    PRE_SEARCH_LIBS="${LIBS}"
+
+    found_pkgconfig=""
+    PKG_CHECK_MODULES([ptmp], [ptmp >= 0.0.0],
+    [
+        was_ptmp_check_lib_detected=pkgcfg
+        found_pkgconfig="ptmp"
+    ],
+    [
+        AC_MSG_WARN([Attribute 'test' is not set on zproject dependency 'ptmp' - please ensure it is set])
+    ])
+
+dnl END of PKG_CHECK_MODULES and/or direct tests for ptmp
+    AS_CASE(["x${was_ptmp_check_lib_detected}"],
+        [xpkgcfg], [
+                PKGCFG_NAMES_PRIVATE="$PKGCFG_NAMES_PRIVATE ${found_pkgconfig}"
+                CFLAGS="${ptmp_CFLAGS} ${CFLAGS}"
+                LIBS="${ptmp_LIBS} ${LIBS}"
+            ],
+        [xyes], [
+                CFLAGS="${ptmp_synthetic_cflags} ${CFLAGS}"
+                LDFLAGS="${ptmp_synthetic_libs} ${LDFLAGS}"
+                LIBS="${ptmp_synthetic_libs} ${LIBS}"
+
+                AC_SUBST([ptmp_CFLAGS],[${ptmp_synthetic_cflags}])
+                AC_SUBST([ptmp_LIBS],[${ptmp_synthetic_libs}])
+            ],
+        [xno], [
+            AC_MSG_ERROR([Cannot find pkg-config metadata for ptmp 0.0.0 or higher])
+    ])
+])
+dnl END of enabled attempts to search for ptmp
+
+
 CFLAGS="${PREVIOUS_CFLAGS}"
 LIBS="${PREVIOUS_LIBS}"
 

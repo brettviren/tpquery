@@ -1,0 +1,38 @@
+## Automatically generated from tpq_server.xml by gsl
+digraph "tpq_server" {
+ "start" -> "defaults" [style=dotted,arrowhead=empty]
+ "connected" -> "defaults" [style=dotted,arrowhead=empty]
+
+ "start" [shape = "doublecircle"];
+ "start hello" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello</font></td></tr><tr><td align="left" port="r3">set coverage</td></tr><tr><td align="left" port="r3">send (coverage)</td></tr></table>>];
+ "start" -> "start hello";
+ "start hello" -> "connected";
+
+ "connected" [shape = "doublecircle"];
+ "connected query" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query</font></td></tr><tr><td align="left" port="r3">check query</td></tr><tr><td align="left" port="r3">set result</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
+ "connected" -> "connected query";
+ "connected query" -> "connected";
+ "connected query delayed" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query delayed</font></td></tr><tr><td align="left" port="r3">push query</td></tr></table>>];
+ "connected" -> "connected query delayed";
+ "connected query delayed" -> "connected";
+
+ "defaults" [shape = "doublecircle"];
+ "defaults ingest" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ingest</font></td></tr><tr><td align="left" port="r3">fill queue</td></tr><tr><td align="left" port="r3">check delayed</td></tr><tr><td align="left" port="r3">purge queue</td></tr></table>>];
+ "defaults" -> "defaults ingest";
+ "defaults ingest" -> "defaults";
+ "defaults ping" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping</font></td></tr><tr><td align="left" port="r3">send (pong)</td></tr></table>>];
+ "defaults" -> "defaults ping";
+ "defaults ping" -> "defaults";
+ "defaults goodbye" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">goodbye</font></td></tr><tr><td align="left" port="r3">send (goodbye ok)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults goodbye";
+ "defaults goodbye" -> "defaults";
+ "defaults expired" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults expired";
+ "defaults expired" -> "defaults";
+ "defaults exception" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults exception";
+ "defaults exception" -> "defaults";
+ "defaults *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults *";
+ "defaults *" -> "defaults";
+}

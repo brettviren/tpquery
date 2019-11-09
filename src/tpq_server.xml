@@ -1,0 +1,69 @@
+<class
+    name = "tpq_server"
+    title = "TP Query Server"
+    script = "zproto_server_c"
+    protocol_class = "tpq_codec"
+    package_dir = "../include"
+    project_header = "tpquery_classes.hpp"
+    header_ext = "hpp"
+    source_ext = "cpp"
+    >
+  The TP query server provides access to recent TPs it has received.
+  <include filename = "../license.xml"/>
+
+  <state name = "start" inherit = "defaults">
+    <event name = "HELLO" next = "connected">
+      <action name = "set coverage" />
+      <action name = "send" message = "COVERAGE"/>
+    </event>
+  </state>
+
+  <state name = "connected" inherit = "defaults">
+    <event name = "QUERY">
+      <action name = "check query"/> <!--can lead to query delayed-->
+      <action name = "set result" />
+      <action name = "send" message = "RESULT" />
+    </event>
+
+    <event name = "query delayed">
+      <action name = "push query"/>
+    </event>
+
+  </state>
+  
+  <state name = "defaults">
+    <event name = "ingest">
+      <action name = "fill queue" />
+      <action name = "check delayed" />
+      <action name = "purge queue" />
+    </event>
+
+    <event name = "PING">
+      <action name = "send" message = "PONG" />
+    </event>
+
+    <event name = "GOODBYE">
+      <action name = "send" message = "GOODBYE OK" />
+      <action name = "terminate" />
+    </event>
+
+    <!-- This built-in event hits on a client timeout -->
+    <event name = "expired">
+      <action name = "terminate" />
+    </event>
+
+    <!-- Client tried to do something we don't allow yet -->
+    <event name = "exception">
+      <action name = "send" message = "ERROR" />
+      <action name = "terminate" />
+    </event>
+
+    <!-- All other protocol messages are invalid -->
+    <event name = "*">
+      <action name = "signal command invalid" />
+      <action name = "send" message = "ERROR" />
+      <action name = "terminate" />
+    </event>
+  </state>
+
+</class>

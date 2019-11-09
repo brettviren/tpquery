@@ -12,14 +12,7 @@
      * The XML model used for this code generation: tpq_codec.xml, or
      * The code generation script that built this file: zproto_codec_c
     ************************************************************************
-    LICENSE FOR THIS PROJECT IS NOT DEFINED!
-
-    Copyright (C) 2019- by tpquery Developers <bv@bnl.gov>
-
-    Please edit license.xml and populate the 'license' tag with proper
-    copyright and legalese contents, and regenerate the zproject.
-
-    LICENSE FOR THIS PROJECT IS NOT DEFINED!
+    Copyright 2019.  May use and distribute according to LGPL v3 or later.
     =========================================================================
 */
 
@@ -44,12 +37,12 @@ struct _tpq_codec_t {
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
     char nickname [256];                //  Client nickname
-    uint32_t detid;                     //  A detid mask, matched via logical AND.
-    uint64_t tstart;                    //  A tstart value matched via binning.
-    zchunk_t *detids;                   //  An array of 4 byte integers giving detids to match via logical AND.
-    zchunk_t *tstarts;                  //  An array of 8 byte integers giving tstarts to match via binned.
-    uint64_t tspan;                     //  A tspan value matched via binning.
-    uint16_t status;                    //  3-digit status code
+    uint64_t detmask;                   //  Detector ID mask
+    uint32_t seqno;                     //  A message sequence number.
+    uint64_t tstart;                    //  A tstart value.
+    uint64_t tspan;                     //  A tspan value.
+    uint16_t status;                    //  The 3-digit status code related to the result.
+    zmsg_t *payload;                    //  A msg holding one frame per TPSet.
     char reason [256];                  //  Printable explanation
 };
 
@@ -275,24 +268,19 @@ tpq_codec_t *
         tpq_codec_set_id (self, TPQ_CODEC_HELLO);
     }
     else
-    if (streq ("TPQ_CODEC_HELLO_OK", message)) {
+    if (streq ("TPQ_CODEC_COVERAGE", message)) {
         self = tpq_codec_new ();
-        tpq_codec_set_id (self, TPQ_CODEC_HELLO_OK);
+        tpq_codec_set_id (self, TPQ_CODEC_COVERAGE);
     }
     else
-    if (streq ("TPQ_CODEC_ONE", message)) {
+    if (streq ("TPQ_CODEC_QUERY", message)) {
         self = tpq_codec_new ();
-        tpq_codec_set_id (self, TPQ_CODEC_ONE);
+        tpq_codec_set_id (self, TPQ_CODEC_QUERY);
     }
     else
-    if (streq ("TPQ_CODEC_MANY", message)) {
+    if (streq ("TPQ_CODEC_RESULT", message)) {
         self = tpq_codec_new ();
-        tpq_codec_set_id (self, TPQ_CODEC_MANY);
-    }
-    else
-    if (streq ("TPQ_CODEC_BLOCK", message)) {
-        self = tpq_codec_new ();
-        tpq_codec_set_id (self, TPQ_CODEC_BLOCK);
+        tpq_codec_set_id (self, TPQ_CODEC_RESULT);
     }
     else
     if (streq ("TPQ_CODEC_PING", message)) {
@@ -357,23 +345,7 @@ tpq_codec_t *
             strncpy (self->nickname, s, 255);
             }
             break;
-        case TPQ_CODEC_HELLO_OK:
-            content = zconfig_locate (config, "content");
-            if (!content) {
-                zsys_error ("Can't find 'content' section");
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            {
-            char *s = zconfig_get (content, "nickname", NULL);
-            if (!s) {
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            strncpy (self->nickname, s, 255);
-            }
-            break;
-        case TPQ_CODEC_ONE:
+        case TPQ_CODEC_COVERAGE:
             content = zconfig_locate (config, "content");
             if (!content) {
                 zsys_error ("Can't find 'content' section");
@@ -382,78 +354,22 @@ tpq_codec_t *
             }
             {
             char *es = NULL;
-            char *s = zconfig_get (content, "detid", NULL);
+            char *s = zconfig_get (content, "detmask", NULL);
             if (!s) {
-                zsys_error ("content/detid not found");
+                zsys_error ("content/detmask not found");
                 tpq_codec_destroy (&self);
                 return NULL;
             }
             uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
             if (es != s+strlen (s)) {
-                zsys_error ("content/detid: %s is not a number", s);
+                zsys_error ("content/detmask: %s is not a number", s);
                 tpq_codec_destroy (&self);
                 return NULL;
             }
-            self->detid = uvalue;
-            }
-            {
-            char *es = NULL;
-            char *s = zconfig_get (content, "tstart", NULL);
-            if (!s) {
-                zsys_error ("content/tstart not found");
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/tstart: %s is not a number", s);
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            self->tstart = uvalue;
+            self->detmask = uvalue;
             }
             break;
-        case TPQ_CODEC_MANY:
-            content = zconfig_locate (config, "content");
-            if (!content) {
-                zsys_error ("Can't find 'content' section");
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            {
-            char *s = zconfig_get (content, "detids", NULL);
-            if (!s) {
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            byte *bvalue;
-            BYTES_FROM_STR (bvalue, s);
-            if (!bvalue) {
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            zchunk_t *chunk = zchunk_new (bvalue, strlen (s) / 2);
-            free (bvalue);
-            self->detids = chunk;
-            }
-            {
-            char *s = zconfig_get (content, "tstarts", NULL);
-            if (!s) {
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            byte *bvalue;
-            BYTES_FROM_STR (bvalue, s);
-            if (!bvalue) {
-                tpq_codec_destroy (&self);
-                return NULL;
-            }
-            zchunk_t *chunk = zchunk_new (bvalue, strlen (s) / 2);
-            free (bvalue);
-            self->tstarts = chunk;
-            }
-            break;
-        case TPQ_CODEC_BLOCK:
+        case TPQ_CODEC_QUERY:
             content = zconfig_locate (config, "content");
             if (!content) {
                 zsys_error ("Can't find 'content' section");
@@ -462,19 +378,19 @@ tpq_codec_t *
             }
             {
             char *es = NULL;
-            char *s = zconfig_get (content, "detid", NULL);
+            char *s = zconfig_get (content, "seqno", NULL);
             if (!s) {
-                zsys_error ("content/detid not found");
+                zsys_error ("content/seqno not found");
                 tpq_codec_destroy (&self);
                 return NULL;
             }
             uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
             if (es != s+strlen (s)) {
-                zsys_error ("content/detid: %s is not a number", s);
+                zsys_error ("content/seqno: %s is not a number", s);
                 tpq_codec_destroy (&self);
                 return NULL;
             }
-            self->detid = uvalue;
+            self->seqno = uvalue;
             }
             {
             char *es = NULL;
@@ -507,6 +423,84 @@ tpq_codec_t *
                 return NULL;
             }
             self->tspan = uvalue;
+            }
+            {
+            char *es = NULL;
+            char *s = zconfig_get (content, "detmask", NULL);
+            if (!s) {
+                zsys_error ("content/detmask not found");
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
+            if (es != s+strlen (s)) {
+                zsys_error ("content/detmask: %s is not a number", s);
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            self->detmask = uvalue;
+            }
+            break;
+        case TPQ_CODEC_RESULT:
+            content = zconfig_locate (config, "content");
+            if (!content) {
+                zsys_error ("Can't find 'content' section");
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            {
+            char *es = NULL;
+            char *s = zconfig_get (content, "seqno", NULL);
+            if (!s) {
+                zsys_error ("content/seqno not found");
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
+            if (es != s+strlen (s)) {
+                zsys_error ("content/seqno: %s is not a number", s);
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            self->seqno = uvalue;
+            }
+            {
+            char *es = NULL;
+            char *s = zconfig_get (content, "status", NULL);
+            if (!s) {
+                zsys_error ("content/status not found");
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
+            if (es != s+strlen (s)) {
+                zsys_error ("content/status: %s is not a number", s);
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            self->status = uvalue;
+            }
+            {
+            char *s = zconfig_get (content, "payload", NULL);
+            if (!s) {
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+#if CZMQ_VERSION_MAJOR == 4
+            zframe_t *frame = zframe_new (bvalue, strlen (s) / 2);
+            zmsg_t *msg = zmsg_decode (frame);
+            zframe_destroy (&frame);
+#else
+            zmsg_t *msg = zmsg_decode (bvalue, strlen (s) / 2);
+#endif
+            free (bvalue);
+            self->payload = msg;
             }
             break;
         case TPQ_CODEC_PING:
@@ -566,8 +560,7 @@ tpq_codec_destroy (tpq_codec_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
-        zchunk_destroy (&self->detids);
-        zchunk_destroy (&self->tstarts);
+        zmsg_destroy (&self->payload);
 
         //  Free object itself
         free (self);
@@ -592,18 +585,15 @@ tpq_codec_dup (tpq_codec_t *other)
 
     // Copy the rest of the fields
     tpq_codec_set_nickname (copy, tpq_codec_nickname (other));
-    tpq_codec_set_detid (copy, tpq_codec_detid (other));
+    tpq_codec_set_detmask (copy, tpq_codec_detmask (other));
+    tpq_codec_set_seqno (copy, tpq_codec_seqno (other));
     tpq_codec_set_tstart (copy, tpq_codec_tstart (other));
-    {
-        zchunk_t *dup_chunk = zchunk_dup (tpq_codec_detids (other));
-        tpq_codec_set_detids (copy, &dup_chunk);
-    }
-    {
-        zchunk_t *dup_chunk = zchunk_dup (tpq_codec_tstarts (other));
-        tpq_codec_set_tstarts (copy, &dup_chunk);
-    }
     tpq_codec_set_tspan (copy, tpq_codec_tspan (other));
     tpq_codec_set_status (copy, tpq_codec_status (other));
+    {
+        zmsg_t *dup_msg = zmsg_dup (tpq_codec_payload (other));
+        tpq_codec_set_payload (copy, &dup_msg);
+    }
     tpq_codec_set_reason (copy, tpq_codec_reason (other));
 
     return copy;
@@ -658,46 +648,26 @@ tpq_codec_recv (tpq_codec_t *self, zsock_t *input)
             GET_STRING (self->nickname);
             break;
 
-        case TPQ_CODEC_HELLO_OK:
-            GET_STRING (self->nickname);
+        case TPQ_CODEC_COVERAGE:
+            GET_NUMBER8 (self->detmask);
             break;
 
-        case TPQ_CODEC_ONE:
-            GET_NUMBER4 (self->detid);
-            GET_NUMBER8 (self->tstart);
-            break;
-
-        case TPQ_CODEC_MANY:
-            {
-                size_t chunk_size;
-                GET_NUMBER4 (chunk_size);
-                if (self->needle + chunk_size > (self->ceiling)) {
-                    zsys_warning ("tpq_codec: detids is missing data");
-                    rc = -2;    //  Malformed
-                    goto malformed;
-                }
-                zchunk_destroy (&self->detids);
-                self->detids = zchunk_new (self->needle, chunk_size);
-                self->needle += chunk_size;
-            }
-            {
-                size_t chunk_size;
-                GET_NUMBER4 (chunk_size);
-                if (self->needle + chunk_size > (self->ceiling)) {
-                    zsys_warning ("tpq_codec: tstarts is missing data");
-                    rc = -2;    //  Malformed
-                    goto malformed;
-                }
-                zchunk_destroy (&self->tstarts);
-                self->tstarts = zchunk_new (self->needle, chunk_size);
-                self->needle += chunk_size;
-            }
-            break;
-
-        case TPQ_CODEC_BLOCK:
-            GET_NUMBER4 (self->detid);
+        case TPQ_CODEC_QUERY:
+            GET_NUMBER4 (self->seqno);
             GET_NUMBER8 (self->tstart);
             GET_NUMBER8 (self->tspan);
+            GET_NUMBER8 (self->detmask);
+            break;
+
+        case TPQ_CODEC_RESULT:
+            GET_NUMBER4 (self->seqno);
+            GET_NUMBER2 (self->status);
+            //  Get zero or more remaining frames
+            zmsg_destroy (&self->payload);
+            if (zsock_rcvmore (input))
+                self->payload = zmsg_recv (input);
+            else
+                self->payload = zmsg_new ();
             break;
 
         case TPQ_CODEC_PING:
@@ -752,25 +722,18 @@ tpq_codec_send (tpq_codec_t *self, zsock_t *output)
         case TPQ_CODEC_HELLO:
             frame_size += 1 + strlen (self->nickname);
             break;
-        case TPQ_CODEC_HELLO_OK:
-            frame_size += 1 + strlen (self->nickname);
+        case TPQ_CODEC_COVERAGE:
+            frame_size += 8;            //  detmask
             break;
-        case TPQ_CODEC_ONE:
-            frame_size += 4;            //  detid
-            frame_size += 8;            //  tstart
-            break;
-        case TPQ_CODEC_MANY:
-            frame_size += 4;            //  Size is 4 octets
-            if (self->detids)
-                frame_size += zchunk_size (self->detids);
-            frame_size += 4;            //  Size is 4 octets
-            if (self->tstarts)
-                frame_size += zchunk_size (self->tstarts);
-            break;
-        case TPQ_CODEC_BLOCK:
-            frame_size += 4;            //  detid
+        case TPQ_CODEC_QUERY:
+            frame_size += 4;            //  seqno
             frame_size += 8;            //  tstart
             frame_size += 8;            //  tspan
+            frame_size += 8;            //  detmask
+            break;
+        case TPQ_CODEC_RESULT:
+            frame_size += 4;            //  seqno
+            frame_size += 2;            //  status
             break;
         case TPQ_CODEC_ERROR:
             frame_size += 2;            //  status
@@ -783,6 +746,7 @@ tpq_codec_send (tpq_codec_t *self, zsock_t *output)
     self->needle = (byte *) zmq_msg_data (&frame);
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
+    bool have_payload = false;
     size_t nbr_frames = 1;              //  Total number of frames to send
 
     switch (self->id) {
@@ -790,40 +754,22 @@ tpq_codec_send (tpq_codec_t *self, zsock_t *output)
             PUT_STRING (self->nickname);
             break;
 
-        case TPQ_CODEC_HELLO_OK:
-            PUT_STRING (self->nickname);
+        case TPQ_CODEC_COVERAGE:
+            PUT_NUMBER8 (self->detmask);
             break;
 
-        case TPQ_CODEC_ONE:
-            PUT_NUMBER4 (self->detid);
-            PUT_NUMBER8 (self->tstart);
-            break;
-
-        case TPQ_CODEC_MANY:
-            if (self->detids) {
-                PUT_NUMBER4 (zchunk_size (self->detids));
-                memcpy (self->needle,
-                        zchunk_data (self->detids),
-                        zchunk_size (self->detids));
-                self->needle += zchunk_size (self->detids);
-            }
-            else
-                PUT_NUMBER4 (0);    //  Empty chunk
-            if (self->tstarts) {
-                PUT_NUMBER4 (zchunk_size (self->tstarts));
-                memcpy (self->needle,
-                        zchunk_data (self->tstarts),
-                        zchunk_size (self->tstarts));
-                self->needle += zchunk_size (self->tstarts);
-            }
-            else
-                PUT_NUMBER4 (0);    //  Empty chunk
-            break;
-
-        case TPQ_CODEC_BLOCK:
-            PUT_NUMBER4 (self->detid);
+        case TPQ_CODEC_QUERY:
+            PUT_NUMBER4 (self->seqno);
             PUT_NUMBER8 (self->tstart);
             PUT_NUMBER8 (self->tspan);
+            PUT_NUMBER8 (self->detmask);
+            break;
+
+        case TPQ_CODEC_RESULT:
+            PUT_NUMBER4 (self->seqno);
+            PUT_NUMBER2 (self->status);
+            nbr_frames += self->payload? zmsg_size (self->payload): 1;
+            have_payload = true;
             break;
 
         case TPQ_CODEC_ERROR:
@@ -835,6 +781,18 @@ tpq_codec_send (tpq_codec_t *self, zsock_t *output)
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
 
+    //  Now send the payload if necessary
+    if (have_payload) {
+        if (self->payload) {
+            zframe_t *frame = zmsg_first (self->payload);
+            while (frame) {
+                zframe_send (&frame, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+                frame = zmsg_next (self->payload);
+            }
+        }
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, 0);
+    }
     return 0;
 }
 
@@ -852,28 +810,28 @@ tpq_codec_print (tpq_codec_t *self)
             zsys_debug ("    nickname='%s'", self->nickname);
             break;
 
-        case TPQ_CODEC_HELLO_OK:
-            zsys_debug ("TPQ_CODEC_HELLO_OK:");
-            zsys_debug ("    nickname='%s'", self->nickname);
+        case TPQ_CODEC_COVERAGE:
+            zsys_debug ("TPQ_CODEC_COVERAGE:");
+            zsys_debug ("    detmask=%ld", (long) self->detmask);
             break;
 
-        case TPQ_CODEC_ONE:
-            zsys_debug ("TPQ_CODEC_ONE:");
-            zsys_debug ("    detid=%ld", (long) self->detid);
-            zsys_debug ("    tstart=%ld", (long) self->tstart);
-            break;
-
-        case TPQ_CODEC_MANY:
-            zsys_debug ("TPQ_CODEC_MANY:");
-            zsys_debug ("    detids=[ ... ]");
-            zsys_debug ("    tstarts=[ ... ]");
-            break;
-
-        case TPQ_CODEC_BLOCK:
-            zsys_debug ("TPQ_CODEC_BLOCK:");
-            zsys_debug ("    detid=%ld", (long) self->detid);
+        case TPQ_CODEC_QUERY:
+            zsys_debug ("TPQ_CODEC_QUERY:");
+            zsys_debug ("    seqno=%ld", (long) self->seqno);
             zsys_debug ("    tstart=%ld", (long) self->tstart);
             zsys_debug ("    tspan=%ld", (long) self->tspan);
+            zsys_debug ("    detmask=%ld", (long) self->detmask);
+            break;
+
+        case TPQ_CODEC_RESULT:
+            zsys_debug ("TPQ_CODEC_RESULT:");
+            zsys_debug ("    seqno=%ld", (long) self->seqno);
+            zsys_debug ("    status=%ld", (long) self->status);
+            zsys_debug ("    payload=");
+            if (self->payload)
+                zmsg_print (self->payload);
+            else
+                zsys_debug ("(NULL)");
             break;
 
         case TPQ_CODEC_PING:
@@ -928,9 +886,9 @@ tpq_codec_zpl (tpq_codec_t *self, zconfig_t *parent)
             zconfig_putf (config, "nickname", "%s", self->nickname);
             break;
             }
-        case TPQ_CODEC_HELLO_OK:
+        case TPQ_CODEC_COVERAGE:
         {
-            zconfig_put (root, "message", "TPQ_CODEC_HELLO_OK");
+            zconfig_put (root, "message", "TPQ_CODEC_COVERAGE");
 
             if (self->routing_id) {
                 char *hex = NULL;
@@ -941,12 +899,12 @@ tpq_codec_zpl (tpq_codec_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "nickname", "%s", self->nickname);
+            zconfig_putf (config, "detmask", "%ld", (long) self->detmask);
             break;
             }
-        case TPQ_CODEC_ONE:
+        case TPQ_CODEC_QUERY:
         {
-            zconfig_put (root, "message", "TPQ_CODEC_ONE");
+            zconfig_put (root, "message", "TPQ_CODEC_QUERY");
 
             if (self->routing_id) {
                 char *hex = NULL;
@@ -957,53 +915,44 @@ tpq_codec_zpl (tpq_codec_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "detid", "%ld", (long) self->detid);
-            zconfig_putf (config, "tstart", "%ld", (long) self->tstart);
-            break;
-            }
-        case TPQ_CODEC_MANY:
-        {
-            zconfig_put (root, "message", "TPQ_CODEC_MANY");
-
-            if (self->routing_id) {
-                char *hex = NULL;
-                STR_FROM_BYTES (hex, zframe_data (self->routing_id), zframe_size (self->routing_id));
-                zconfig_putf (root, "routing_id", "%s", hex);
-                zstr_free (&hex);
-            }
-
-
-            zconfig_t *config = zconfig_new ("content", root);
-            {
-            char *hex = NULL;
-            STR_FROM_BYTES (hex, zchunk_data (self->detids), zchunk_size (self->detids));
-            zconfig_putf (config, "detids", "%s", hex);
-            zstr_free (&hex);
-            }
-            {
-            char *hex = NULL;
-            STR_FROM_BYTES (hex, zchunk_data (self->tstarts), zchunk_size (self->tstarts));
-            zconfig_putf (config, "tstarts", "%s", hex);
-            zstr_free (&hex);
-            }
-            break;
-            }
-        case TPQ_CODEC_BLOCK:
-        {
-            zconfig_put (root, "message", "TPQ_CODEC_BLOCK");
-
-            if (self->routing_id) {
-                char *hex = NULL;
-                STR_FROM_BYTES (hex, zframe_data (self->routing_id), zframe_size (self->routing_id));
-                zconfig_putf (root, "routing_id", "%s", hex);
-                zstr_free (&hex);
-            }
-
-
-            zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "detid", "%ld", (long) self->detid);
+            zconfig_putf (config, "seqno", "%ld", (long) self->seqno);
             zconfig_putf (config, "tstart", "%ld", (long) self->tstart);
             zconfig_putf (config, "tspan", "%ld", (long) self->tspan);
+            zconfig_putf (config, "detmask", "%ld", (long) self->detmask);
+            break;
+            }
+        case TPQ_CODEC_RESULT:
+        {
+            zconfig_put (root, "message", "TPQ_CODEC_RESULT");
+
+            if (self->routing_id) {
+                char *hex = NULL;
+                STR_FROM_BYTES (hex, zframe_data (self->routing_id), zframe_size (self->routing_id));
+                zconfig_putf (root, "routing_id", "%s", hex);
+                zstr_free (&hex);
+            }
+
+
+            zconfig_t *config = zconfig_new ("content", root);
+            zconfig_putf (config, "seqno", "%ld", (long) self->seqno);
+            zconfig_putf (config, "status", "%ld", (long) self->status);
+            {
+            char *hex = NULL;
+#if CZMQ_VERSION_MAJOR == 4
+            zframe_t *frame = zmsg_encode (self->payload);
+            STR_FROM_BYTES (hex, zframe_data (frame), zframe_size (frame));
+            zconfig_putf (config, "payload", "%s", hex);
+            zstr_free (&hex);
+            zframe_destroy (&frame);
+#else
+            byte *buffer;
+            size_t size = zmsg_encode (self->payload, &buffer);
+            STR_FROM_BYTES (hex, buffer, size);
+            zconfig_putf (config, "payload", "%s", hex);
+            zstr_free (&hex);
+            free (buffer); buffer= NULL;
+#endif
+            }
             break;
             }
         case TPQ_CODEC_PING:
@@ -1129,17 +1078,14 @@ tpq_codec_command (tpq_codec_t *self)
         case TPQ_CODEC_HELLO:
             return ("HELLO");
             break;
-        case TPQ_CODEC_HELLO_OK:
-            return ("HELLO_OK");
+        case TPQ_CODEC_COVERAGE:
+            return ("COVERAGE");
             break;
-        case TPQ_CODEC_ONE:
-            return ("ONE");
+        case TPQ_CODEC_QUERY:
+            return ("QUERY");
             break;
-        case TPQ_CODEC_MANY:
-            return ("MANY");
-            break;
-        case TPQ_CODEC_BLOCK:
-            return ("BLOCK");
+        case TPQ_CODEC_RESULT:
+            return ("RESULT");
             break;
         case TPQ_CODEC_PING:
             return ("PING");
@@ -1184,20 +1130,38 @@ tpq_codec_set_nickname (tpq_codec_t *self, const char *value)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the detid field
+//  Get/set the detmask field
 
-uint32_t
-tpq_codec_detid (tpq_codec_t *self)
+uint64_t
+tpq_codec_detmask (tpq_codec_t *self)
 {
     assert (self);
-    return self->detid;
+    return self->detmask;
 }
 
 void
-tpq_codec_set_detid (tpq_codec_t *self, uint32_t detid)
+tpq_codec_set_detmask (tpq_codec_t *self, uint64_t detmask)
 {
     assert (self);
-    self->detid = detid;
+    self->detmask = detmask;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the seqno field
+
+uint32_t
+tpq_codec_seqno (tpq_codec_t *self)
+{
+    assert (self);
+    return self->seqno;
+}
+
+void
+tpq_codec_set_seqno (tpq_codec_t *self, uint32_t seqno)
+{
+    assert (self);
+    self->seqno = seqno;
 }
 
 
@@ -1216,72 +1180,6 @@ tpq_codec_set_tstart (tpq_codec_t *self, uint64_t tstart)
 {
     assert (self);
     self->tstart = tstart;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Get the detids field without transferring ownership
-
-zchunk_t *
-tpq_codec_detids (tpq_codec_t *self)
-{
-    assert (self);
-    return self->detids;
-}
-
-//  Get the detids field and transfer ownership to caller
-
-zchunk_t *
-tpq_codec_get_detids (tpq_codec_t *self)
-{
-    zchunk_t *detids = self->detids;
-    self->detids = NULL;
-    return detids;
-}
-
-//  Set the detids field, transferring ownership from caller
-
-void
-tpq_codec_set_detids (tpq_codec_t *self, zchunk_t **chunk_p)
-{
-    assert (self);
-    assert (chunk_p);
-    zchunk_destroy (&self->detids);
-    self->detids = *chunk_p;
-    *chunk_p = NULL;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Get the tstarts field without transferring ownership
-
-zchunk_t *
-tpq_codec_tstarts (tpq_codec_t *self)
-{
-    assert (self);
-    return self->tstarts;
-}
-
-//  Get the tstarts field and transfer ownership to caller
-
-zchunk_t *
-tpq_codec_get_tstarts (tpq_codec_t *self)
-{
-    zchunk_t *tstarts = self->tstarts;
-    self->tstarts = NULL;
-    return tstarts;
-}
-
-//  Set the tstarts field, transferring ownership from caller
-
-void
-tpq_codec_set_tstarts (tpq_codec_t *self, zchunk_t **chunk_p)
-{
-    assert (self);
-    assert (chunk_p);
-    zchunk_destroy (&self->tstarts);
-    self->tstarts = *chunk_p;
-    *chunk_p = NULL;
 }
 
 
@@ -1318,6 +1216,39 @@ tpq_codec_set_status (tpq_codec_t *self, uint16_t status)
 {
     assert (self);
     self->status = status;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get the payload field without transferring ownership
+
+zmsg_t *
+tpq_codec_payload (tpq_codec_t *self)
+{
+    assert (self);
+    return self->payload;
+}
+
+//  Get the payload field and transfer ownership to caller
+
+zmsg_t *
+tpq_codec_get_payload (tpq_codec_t *self)
+{
+    zmsg_t *payload = self->payload;
+    self->payload = NULL;
+    return payload;
+}
+
+//  Set the payload field, transferring ownership from caller
+
+void
+tpq_codec_set_payload (tpq_codec_t *self, zmsg_t **msg_p)
+{
+    assert (self);
+    assert (msg_p);
+    zmsg_destroy (&self->payload);
+    self->payload = *msg_p;
+    *msg_p = NULL;
 }
 
 
@@ -1404,8 +1335,8 @@ tpq_codec_test (bool verbose)
             self = self_temp;
         }
     }
-    tpq_codec_set_id (self, TPQ_CODEC_HELLO_OK);
-    tpq_codec_set_nickname (self, "Life is short but Now lasts for ever");
+    tpq_codec_set_id (self, TPQ_CODEC_COVERAGE);
+    tpq_codec_set_detmask (self, 123);
     // convert to zpl
     config = tpq_codec_zpl (self, NULL);
     if (verbose)
@@ -1425,80 +1356,17 @@ tpq_codec_test (bool verbose)
         }
         if (instance < 2)
             assert (tpq_codec_routing_id (self));
-        assert (streq (tpq_codec_nickname (self), "Life is short but Now lasts for ever"));
+        assert (tpq_codec_detmask (self) == 123);
         if (instance == 2) {
             tpq_codec_destroy (&self);
             self = self_temp;
         }
     }
-    tpq_codec_set_id (self, TPQ_CODEC_ONE);
-    tpq_codec_set_detid (self, 123);
-    tpq_codec_set_tstart (self, 123);
-    // convert to zpl
-    config = tpq_codec_zpl (self, NULL);
-    if (verbose)
-        zconfig_print (config);
-    //  Send twice
-    tpq_codec_send (self, output);
-    tpq_codec_send (self, output);
-
-    for (instance = 0; instance < 3; instance++) {
-        tpq_codec_t *self_temp = self;
-        if (instance < 2)
-            tpq_codec_recv (self, input);
-        else {
-            self = tpq_codec_new_zpl (config);
-            assert (self);
-            zconfig_destroy (&config);
-        }
-        if (instance < 2)
-            assert (tpq_codec_routing_id (self));
-        assert (tpq_codec_detid (self) == 123);
-        assert (tpq_codec_tstart (self) == 123);
-        if (instance == 2) {
-            tpq_codec_destroy (&self);
-            self = self_temp;
-        }
-    }
-    tpq_codec_set_id (self, TPQ_CODEC_MANY);
-    zchunk_t *many_detids = zchunk_new ("Captcha Diem", 12);
-    tpq_codec_set_detids (self, &many_detids);
-    zchunk_t *many_tstarts = zchunk_new ("Captcha Diem", 12);
-    tpq_codec_set_tstarts (self, &many_tstarts);
-    // convert to zpl
-    config = tpq_codec_zpl (self, NULL);
-    if (verbose)
-        zconfig_print (config);
-    //  Send twice
-    tpq_codec_send (self, output);
-    tpq_codec_send (self, output);
-
-    for (instance = 0; instance < 3; instance++) {
-        tpq_codec_t *self_temp = self;
-        if (instance < 2)
-            tpq_codec_recv (self, input);
-        else {
-            self = tpq_codec_new_zpl (config);
-            assert (self);
-            zconfig_destroy (&config);
-        }
-        if (instance < 2)
-            assert (tpq_codec_routing_id (self));
-        assert (memcmp (zchunk_data (tpq_codec_detids (self)), "Captcha Diem", 12) == 0);
-        if (instance == 2)
-            zchunk_destroy (&many_detids);
-        assert (memcmp (zchunk_data (tpq_codec_tstarts (self)), "Captcha Diem", 12) == 0);
-        if (instance == 2)
-            zchunk_destroy (&many_tstarts);
-        if (instance == 2) {
-            tpq_codec_destroy (&self);
-            self = self_temp;
-        }
-    }
-    tpq_codec_set_id (self, TPQ_CODEC_BLOCK);
-    tpq_codec_set_detid (self, 123);
+    tpq_codec_set_id (self, TPQ_CODEC_QUERY);
+    tpq_codec_set_seqno (self, 123);
     tpq_codec_set_tstart (self, 123);
     tpq_codec_set_tspan (self, 123);
+    tpq_codec_set_detmask (self, 123);
     // convert to zpl
     config = tpq_codec_zpl (self, NULL);
     if (verbose)
@@ -1518,9 +1386,48 @@ tpq_codec_test (bool verbose)
         }
         if (instance < 2)
             assert (tpq_codec_routing_id (self));
-        assert (tpq_codec_detid (self) == 123);
+        assert (tpq_codec_seqno (self) == 123);
         assert (tpq_codec_tstart (self) == 123);
         assert (tpq_codec_tspan (self) == 123);
+        assert (tpq_codec_detmask (self) == 123);
+        if (instance == 2) {
+            tpq_codec_destroy (&self);
+            self = self_temp;
+        }
+    }
+    tpq_codec_set_id (self, TPQ_CODEC_RESULT);
+    tpq_codec_set_seqno (self, 123);
+    tpq_codec_set_status (self, 123);
+    zmsg_t *result_payload = zmsg_new ();
+    tpq_codec_set_payload (self, &result_payload);
+    zmsg_addstr (tpq_codec_payload (self), "Captcha Diem");
+    // convert to zpl
+    config = tpq_codec_zpl (self, NULL);
+    if (verbose)
+        zconfig_print (config);
+    //  Send twice
+    tpq_codec_send (self, output);
+    tpq_codec_send (self, output);
+
+    for (instance = 0; instance < 3; instance++) {
+        tpq_codec_t *self_temp = self;
+        if (instance < 2)
+            tpq_codec_recv (self, input);
+        else {
+            self = tpq_codec_new_zpl (config);
+            assert (self);
+            zconfig_destroy (&config);
+        }
+        if (instance < 2)
+            assert (tpq_codec_routing_id (self));
+        assert (tpq_codec_seqno (self) == 123);
+        assert (tpq_codec_status (self) == 123);
+        assert (zmsg_size (tpq_codec_payload (self)) == 1);
+        char *content = zmsg_popstr (tpq_codec_payload (self));
+        assert (streq (content, "Captcha Diem"));
+        zstr_free (&content);
+        if (instance == 2)
+            zmsg_destroy (&result_payload);
         if (instance == 2) {
             tpq_codec_destroy (&self);
             self = self_temp;

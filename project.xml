@@ -10,22 +10,25 @@
   <include filename = "license.xml" />
 
   <use project = "czmq" />
-  <!-- 
-  <use project = "ptmp" />
-  -->
+  <use project = "ptmp"
+       header = "ptmp/api.h"
+       language = "C++" />
+
   <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
                  pkgincludedir = "false" keep-tree = "true" pretty-print = "no"
                  source-extension = "cpp" header-extension = "hpp" />
   
   
   <class name = "tpq_codec" />
-  <!-- 
   <class name = "tpq_server" />
+  <!-- 
   <class name = "tpq_client" />
   -->
   <model name = "tpq_codec" />
+  <model name = "tpq_server" />
 
   <target name = "autotools" />
+
 
 </project>
     
