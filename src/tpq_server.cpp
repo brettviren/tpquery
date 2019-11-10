@@ -18,11 +18,57 @@
 #include "../include/tpq_codec.hpp"
 #include "../include/tpq_server.hpp"
 
+#include "ptmp/internals.h"
+#include "icl/interval.hpp"
+#include "icl/interval_map.hpp"
+
+// this holds a TPSet object as a zmsg.  It is kept in the interval
+// map via a shared_ptr.
+struct payload_t {
+    zmsg_t* _msg;
+    int64_t tstart;
+    int32_t tspan;
+    uint64_t detid;             // actually 32bit in msg
+    payload_t(zmsg_t* m) : _msg(m) {
+        // deserialize to get detid and time interval
+        ptmp::data::TPSet tpset;
+        ptmp::internals::recv_keep(_msg, tpset);
+        tstart = tpset.tstart();
+        tspan = tpset.tspan();
+        detid = tpset.detid();
+    }
+    ~payload_t() {
+        zmsg_destroy(&_msg);
+    }
+
+    // fixme: place holder.  tailor to actual send idiom.
+    // Caller takes ownership of return.
+    zmsg_t* msg() const {
+        return zmsg_dup(_msg);
+    }
+};
+
+typedef std::shared_ptr<payload_t> imvalue_t;
+typedef std::set<imvalue_t> imset_t;
+typedef int64_t imkey_t;
+typedef boost::icl::interval_map<imkey_t, imset_t> immap_t;
+typedef boost::icl::interval<imkey_t> iminterval_t;
+
 //  ---------------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
 
 typedef struct _server_t server_t;
 typedef struct _client_t client_t;
+
+struct request_t {
+    client_t* client;
+    uint64_t detmask;
+    iminterval_t interval;
+};
+// keyed by END of requested interval.
+// any pending requests with keys after queue end may be serviced.
+typedef std::map<imkey_t, request_t> request_queue_t;
+
 
 //  This structure defines the context for each running server. Store
 //  whatever properties and structures you need for the server.
@@ -33,8 +79,15 @@ struct _server_t {
     zsock_t *pipe;              //  Actor pipe back to caller
     zconfig_t *config;          //  Current loaded configuration
 
-    //  TODO: Add any properties you need here
+    //  server properties
     zsock_t* ingest;            // PTMP message input
+
+    immap_t iq;                 // interval queue
+    size_t iq_lwm{10000};       // low water mark iterative size
+    size_t iq_hwm{20000};       // high water mark iterative size
+
+    request_queue_t pending;    // pending client requests
+
 };
 
 //  ---------------------------------------------------------------------------
@@ -76,15 +129,55 @@ server_terminate (server_t *self)
     //  Destroy properties here
 }
 
+static int
+s_server_handle_ingest(zloop_t* loop, zsock_t* reader, void* varg);
+
+static
+int64_t poplong(zmsg_t *msg)
+{
+    char *value = zmsg_popstr (msg);
+    const int64_t ret = atol(value);
+    free (value);
+    return ret;
+}
+
 //  Process server API method, return reply message if any
 
 static zmsg_t *
 server_method (server_t *self, const char *method, zmsg_t *msg)
 {
-    ZPROTO_UNUSED(self);
-    ZPROTO_UNUSED(method);
-    ZPROTO_UNUSED(msg);
-    return NULL;
+    zmsg_t* reply = NULL;
+
+    if (streq (method, "INGEST")) {
+        if (self->ingest) {
+            // how to "unhandle_socket()" ?
+            zsock_destroy(&self->ingest);
+        }
+        char* cfg = zmsg_popstr(msg);
+        self->ingest = ptmp::internals::endpoint(cfg);
+        if (self->ingest) {
+            engine_handle_socket(self, self->ingest, s_server_handle_ingest);
+        }
+        else {
+            zsys_error("tpq_server: failed to create ingest socket\n%s", cfg);
+        }
+        free(cfg);
+        reply = zmsg_new();
+        zmsg_addstrf(reply, "INGEST %s", self->ingest ? "OK" : "FAILED");
+    }
+
+    else if (streq (method, "QUEUE")) {
+        self->iq_lwm = poplong(msg);
+        self->iq_hwm = poplong(msg);
+        reply = zmsg_new();
+        zmsg_addstr(reply, "QUEUE OK");
+    }
+
+    else {
+        zsys_error ("unknown server method '%s', fix calling code", method);
+        assert (false);         // fix calling code!
+    }
+    return reply;
 }
 
 //  Apply new configuration.
@@ -95,6 +188,16 @@ server_configuration (server_t *self, zconfig_t *config)
     ZPROTO_UNUSED(self);
     ZPROTO_UNUSED(config);
     //  Apply new configuration
+}
+
+static int
+s_server_handle_ingest(zloop_t* loop, zsock_t* reader, void* varg)
+{
+    // fixme: implement
+    // 1. slurp new
+    // 2. check queued, execute "result available" on client
+    // 3. maybe purge
+    return 0;
 }
 
 //  Allocate properties and structures for a new client connection and
@@ -188,39 +291,6 @@ set_result (client_t *self)
 
 static void
 push_query (client_t *self)
-{
-
-}
-
-
-//  ---------------------------------------------------------------------------
-//  fill_queue
-//
-
-static void
-fill_queue (client_t *self)
-{
-
-}
-
-
-//  ---------------------------------------------------------------------------
-//  check_delayed
-//
-
-static void
-check_delayed (client_t *self)
-{
-
-}
-
-
-//  ---------------------------------------------------------------------------
-//  purge_queue
-//
-
-static void
-purge_queue (client_t *self)
 {
 
 }

@@ -15,11 +15,11 @@ digraph "tpq_server" {
  "connected query delayed" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query delayed</font></td></tr><tr><td align="left" port="r3">push query</td></tr></table>>];
  "connected" -> "connected query delayed";
  "connected query delayed" -> "connected";
+ "connected result available" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result available</font></td></tr><tr><td align="left" port="r3">set result</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
+ "connected" -> "connected result available";
+ "connected result available" -> "connected";
 
  "defaults" [shape = "doublecircle"];
- "defaults ingest" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ingest</font></td></tr><tr><td align="left" port="r3">fill queue</td></tr><tr><td align="left" port="r3">check delayed</td></tr><tr><td align="left" port="r3">purge queue</td></tr></table>>];
- "defaults" -> "defaults ingest";
- "defaults ingest" -> "defaults";
  "defaults ping" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping</font></td></tr><tr><td align="left" port="r3">send (pong)</td></tr></table>>];
  "defaults" -> "defaults ping";
  "defaults ping" -> "defaults";

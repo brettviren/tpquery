@@ -37,7 +37,7 @@ typedef enum {
     hello_event = 2,
     query_event = 3,
     query_delayed_event = 4,
-    ingest_event = 5,
+    result_available_event = 5,
     ping_event = 6,
     goodbye_event = 7,
     expired_event = 8,
@@ -60,7 +60,7 @@ s_event_name [] = {
     "HELLO",
     "QUERY",
     "query_delayed",
-    "ingest",
+    "result_available",
     "PING",
     "GOODBYE",
     "expired",
@@ -141,12 +141,6 @@ static void
     set_result (client_t *self);
 static void
     push_query (client_t *self);
-static void
-    fill_queue (client_t *self);
-static void
-    check_delayed (client_t *self);
-static void
-    purge_queue (client_t *self);
 static void
     signal_command_invalid (client_t *self);
 
@@ -510,27 +504,6 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == ingest_event) {
-                    if (!self->exception) {
-                        //  fill queue
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ fill queue", self->log_prefix);
-                        fill_queue (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  check delayed
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ check delayed", self->log_prefix);
-                        check_delayed (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  purge queue
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ purge queue", self->log_prefix);
-                        purge_queue (&self->client);
-                    }
-                }
-                else
                 if (self->event == ping_event) {
                     if (!self->exception) {
                         //  send PONG
@@ -647,24 +620,21 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == ingest_event) {
+                if (self->event == result_available_event) {
                     if (!self->exception) {
-                        //  fill queue
+                        //  set result
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ fill queue", self->log_prefix);
-                        fill_queue (&self->client);
+                            zsys_debug ("%s:         $ set result", self->log_prefix);
+                        set_result (&self->client);
                     }
                     if (!self->exception) {
-                        //  check delayed
+                        //  send RESULT
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ check delayed", self->log_prefix);
-                        check_delayed (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  purge queue
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ purge queue", self->log_prefix);
-                        purge_queue (&self->client);
+                            zsys_debug ("%s:         $ send RESULT",
+                                self->log_prefix);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_RESULT);
+                        tpq_codec_set_routing_id (self->server->message, self->routing_id);
+                        tpq_codec_send (self->server->message, self->server->router);
                     }
                 }
                 else
@@ -751,27 +721,6 @@ s_client_execute (s_client_t *self, event_t event)
                 break;
 
             case defaults_state:
-                if (self->event == ingest_event) {
-                    if (!self->exception) {
-                        //  fill queue
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ fill queue", self->log_prefix);
-                        fill_queue (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  check delayed
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ check delayed", self->log_prefix);
-                        check_delayed (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  purge queue
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ purge queue", self->log_prefix);
-                        purge_queue (&self->client);
-                    }
-                }
-                else
                 if (self->event == ping_event) {
                     if (!self->exception) {
                         //  send PONG

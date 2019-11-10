@@ -29,14 +29,14 @@
       <action name = "push query"/>
     </event>
 
+    <event name = "result available">
+      <action name = "set result" />
+      <action name = "send" message = "RESULT" />
+    </event>
+
   </state>
   
   <state name = "defaults">
-    <event name = "ingest">
-      <action name = "fill queue" />
-      <action name = "check delayed" />
-      <action name = "purge queue" />
-    </event>
 
     <event name = "PING">
       <action name = "send" message = "PONG" />
