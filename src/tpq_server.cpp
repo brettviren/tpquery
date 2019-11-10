@@ -22,12 +22,15 @@
 #include "icl/interval.hpp"
 #include "icl/interval_map.hpp"
 
+typedef int64_t imkey_t;
+typedef boost::icl::interval<imkey_t>::interval_type iminterval_t;
+
 // this holds a TPSet object as a zmsg.  It is kept in the interval
 // map via a shared_ptr.
 struct payload_t {
     zmsg_t* _msg;
     int64_t tstart;
-    int32_t tspan;
+    int64_t tspan;
     uint64_t detid;             // actually 32bit in msg
     payload_t(zmsg_t* m) : _msg(m) {
         // deserialize to get detid and time interval
@@ -41,6 +44,10 @@ struct payload_t {
         zmsg_destroy(&_msg);
     }
 
+    iminterval_t interval() const {
+        return iminterval_t::right_open(tstart, tstart+tspan);
+    }
+    
     // fixme: place holder.  tailor to actual send idiom.
     // Caller takes ownership of return.
     zmsg_t* msg() const {
@@ -50,9 +57,8 @@ struct payload_t {
 
 typedef std::shared_ptr<payload_t> imvalue_t;
 typedef std::set<imvalue_t> imset_t;
-typedef int64_t imkey_t;
 typedef boost::icl::interval_map<imkey_t, imset_t> immap_t;
-typedef boost::icl::interval<imkey_t> iminterval_t;
+
 
 //  ---------------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
@@ -63,7 +69,8 @@ typedef struct _client_t client_t;
 struct request_t {
     client_t* client;
     uint64_t detmask;
-    iminterval_t interval;
+    int64_t tstart;             // tend is the key
+    uint32_t seqno;
 };
 // keyed by END of requested interval.
 // any pending requests with keys after queue end may be serviced.
@@ -191,12 +198,38 @@ server_configuration (server_t *self, zconfig_t *config)
 }
 
 static int
-s_server_handle_ingest(zloop_t* loop, zsock_t* reader, void* varg)
+s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
 {
-    // fixme: implement
+    server_t *self = (server_t *) varg;
+
     // 1. slurp new
+    while (!(zsock_events(ingest) & ZMQ_POLLIN)) {
+        zmsg_t* msg = zmsg_recv(ingest);
+        auto ptr = std::make_shared<payload_t>(msg);
+        self->iq += std::make_pair(ptr->interval(), imset_t{ptr});
+    }
     // 2. check queued, execute "result available" on client
+    int64_t queue_tend = boost::icl::last(self->iq);
+    std::vector<request_t> tokill;
+    for (auto it = self->pending.begin(); it != self->pending.end(); ++it) {
+        int64_t tend = it->first;
+        if (tend >= queue_tend) {
+            break;
+        }
+        request_t& req = it->second;
+        tpq_codec_set_detmask(req.client->message, req.detmask);
+        tpq_codec_set_seqno(req.client->message, req.seqno);
+        tpq_codec_set_tstart(req.client->message, req.tstart);
+        tpq_codec_set_tspan(req.client->message, tend - req.tstart);
+        engine_send_event(req.client, result_available_event);
+    }
+
     // 3. maybe purge
+    int64_t queue_tstart = boost::icl::first(self->iq);
+    if (queue_tend - queue_tstart > self->iq_hwm) {
+        self->iq -= iminterval_t::right_open(0, queue_tend - self->iq_lwm);
+    }
+
     return 0;
 }
 
