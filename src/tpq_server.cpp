@@ -180,6 +180,12 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
         zmsg_addstrf(reply, "INGEST %s", self->ingest ? "OK" : "FAILED");
     }
 
+    else if (streq (method, "DETMASK")) {
+        self->detmask = poplong(msg);
+        reply = zmsg_new();
+        zmsg_addstr(reply, "DETMASK OK");
+    }
+
     else if (streq (method, "QUEUE")) {
         self->iq_lwm = poplong(msg);
         self->iq_hwm = poplong(msg);
@@ -211,9 +217,11 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
 
     // 1. slurp new
     while (!(zsock_events(ingest) & ZMQ_POLLIN)) {
-        zmsg_t* msg = zmsg_recv(ingest);
+        zmsg_t* msg = zmsg_recv(ingest); // ptmp message
         auto ptr = std::make_shared<payload_t>(msg);
-        self->iq += std::make_pair(ptr->interval(), imset_t{ptr});
+        if (ptr->detid & self->detmask) {
+            self->iq += std::make_pair(ptr->interval(), imset_t{ptr});
+        }
     }
     // 2. check queued, execute "result available" on client
     int64_t queue_beg = boost::icl::lower(self->iq);
