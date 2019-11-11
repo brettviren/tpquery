@@ -303,27 +303,6 @@ tpq_server_test (bool verbose)
 }
 
 
-//  ---------------------------------------------------------------------------
-//  set_coverage
-//
-
-static void
-set_coverage (client_t *self)
-{
-
-}
-
-
-//  ---------------------------------------------------------------------------
-//  check_query
-//
-
-static void
-check_query (client_t *self)
-{
-
-}
-
 
 //  ---------------------------------------------------------------------------
 //  set_payload
@@ -422,4 +401,15 @@ handle_query (client_t *self)
         // add to pending
         engine_set_next_event(self, query_is_delayed_event);
     }
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_coverage
+//
+
+static void
+set_coverage (client_t *self)
+{
+    tpq_codec_set_detmask(self->message, self->server->detmask);
 }
