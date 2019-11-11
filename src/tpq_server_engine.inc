@@ -36,12 +36,15 @@ typedef enum {
     terminate_event = 1,
     hello_event = 2,
     query_event = 3,
-    query_delayed_event = 4,
-    result_available_event = 5,
-    ping_event = 6,
-    goodbye_event = 7,
-    expired_event = 8,
-    exception_event = 9
+    query_is_fully_late_event = 4,
+    query_is_partly_late_event = 5,
+    query_is_delayed_event = 6,
+    query_is_satisfied_event = 7,
+    query_is_bogus_event = 8,
+    ping_event = 9,
+    goodbye_event = 10,
+    expired_event = 11,
+    exception_event = 12
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -59,8 +62,11 @@ s_event_name [] = {
     "terminate",
     "HELLO",
     "QUERY",
-    "query_delayed",
-    "result_available",
+    "query_is_fully_late",
+    "query_is_partly_late",
+    "query_is_delayed",
+    "query_is_satisfied",
+    "query_is_bogus",
     "PING",
     "GOODBYE",
     "expired",
@@ -136,9 +142,9 @@ static void
 static void
     set_coverage (client_t *self);
 static void
-    check_query (client_t *self);
+    handle_query (client_t *self);
 static void
-    set_result (client_t *self);
+    set_payload (client_t *self);
 static void
     push_query (client_t *self);
 static void
@@ -589,16 +595,58 @@ s_client_execute (s_client_t *self, event_t event)
             case connected_state:
                 if (self->event == query_event) {
                     if (!self->exception) {
-                        //  check query
+                        //  handle query
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ check query", self->log_prefix);
-                        check_query (&self->client);
+                            zsys_debug ("%s:         $ handle query", self->log_prefix);
+                        handle_query (&self->client);
+                    }
+                }
+                else
+                if (self->event == query_is_fully_late_event) {
+                    if (!self->exception) {
+                        //  send NOT_FOUND
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send NOT_FOUND",
+                                self->log_prefix);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_NOT_FOUND);
+                        tpq_codec_set_routing_id (self->server->message, self->routing_id);
+                        tpq_codec_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == query_is_partly_late_event) {
+                    if (!self->exception) {
+                        //  set payload
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set payload", self->log_prefix);
+                        set_payload (&self->client);
                     }
                     if (!self->exception) {
-                        //  set result
+                        //  send PARTIAL_CONTENT
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ set result", self->log_prefix);
-                        set_result (&self->client);
+                            zsys_debug ("%s:         $ send PARTIAL_CONTENT",
+                                self->log_prefix);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_PARTIAL_CONTENT);
+                        tpq_codec_set_routing_id (self->server->message, self->routing_id);
+                        tpq_codec_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == query_is_delayed_event) {
+                    if (!self->exception) {
+                        //  push query
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ push query", self->log_prefix);
+                        push_query (&self->client);
+                    }
+                }
+                else
+                if (self->event == query_is_satisfied_event) {
+                    if (!self->exception) {
+                        //  set payload
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set payload", self->log_prefix);
+                        set_payload (&self->client);
                     }
                     if (!self->exception) {
                         //  send RESULT
@@ -611,28 +659,13 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == query_delayed_event) {
+                if (self->event == query_is_bogus_event) {
                     if (!self->exception) {
-                        //  push query
+                        //  send COMMAND_INVALID
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ push query", self->log_prefix);
-                        push_query (&self->client);
-                    }
-                }
-                else
-                if (self->event == result_available_event) {
-                    if (!self->exception) {
-                        //  set result
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ set result", self->log_prefix);
-                        set_result (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send RESULT
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ send RESULT",
+                            zsys_debug ("%s:         $ send COMMAND_INVALID",
                                 self->log_prefix);
-                        tpq_codec_set_id (self->server->message, TPQ_CODEC_RESULT);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_COMMAND_INVALID);
                         tpq_codec_set_routing_id (self->server->message, self->routing_id);
                         tpq_codec_send (self->server->message, self->server->router);
                     }

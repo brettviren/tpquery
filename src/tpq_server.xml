@@ -20,20 +20,32 @@
 
   <state name = "connected" inherit = "defaults">
     <event name = "QUERY">
-      <action name = "check query"/> <!--can lead to query delayed-->
-      <action name = "set result" />
-      <action name = "send" message = "RESULT" />
+      <action name = "handle query"/>
     </event>
 
-    <event name = "query delayed">
+    <!-- exceptions from handle query -->
+
+    <event name = "query is fully late">
+      <action name = "send" message = "NOT FOUND" />
+    </event>
+
+    <event name = "query is partly late">
+      <action name = "set payload" />
+      <action name = "send" message = "PARTIAL CONTENT" />
+    </event>
+
+    <event name = "query is delayed">
       <action name = "push query"/>
     </event>
 
-    <event name = "result available">
-      <action name = "set result" />
+    <event name = "query is satisfied">
+      <action name = "set payload" />
       <action name = "send" message = "RESULT" />
     </event>
 
+    <event name = "query is bogus">
+      <action name = "send" message = "COMMAND INVALID" />
+    </event>
   </state>
   
   <state name = "defaults">

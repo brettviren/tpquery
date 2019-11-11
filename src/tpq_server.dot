@@ -9,15 +9,24 @@ digraph "tpq_server" {
  "start hello" -> "connected";
 
  "connected" [shape = "doublecircle"];
- "connected query" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query</font></td></tr><tr><td align="left" port="r3">check query</td></tr><tr><td align="left" port="r3">set result</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
+ "connected query" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query</font></td></tr><tr><td align="left" port="r3">handle query</td></tr></table>>];
  "connected" -> "connected query";
  "connected query" -> "connected";
- "connected query delayed" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query delayed</font></td></tr><tr><td align="left" port="r3">push query</td></tr></table>>];
- "connected" -> "connected query delayed";
- "connected query delayed" -> "connected";
- "connected result available" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result available</font></td></tr><tr><td align="left" port="r3">set result</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
- "connected" -> "connected result available";
- "connected result available" -> "connected";
+ "connected query is fully late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is fully late</font></td></tr><tr><td align="left" port="r3">send (not found)</td></tr></table>>];
+ "connected" -> "connected query is fully late";
+ "connected query is fully late" -> "connected";
+ "connected query is partly late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is partly late</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (partial content)</td></tr></table>>];
+ "connected" -> "connected query is partly late";
+ "connected query is partly late" -> "connected";
+ "connected query is delayed" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is delayed</font></td></tr><tr><td align="left" port="r3">push query</td></tr></table>>];
+ "connected" -> "connected query is delayed";
+ "connected query is delayed" -> "connected";
+ "connected query is satisfied" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is satisfied</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
+ "connected" -> "connected query is satisfied";
+ "connected query is satisfied" -> "connected";
+ "connected query is bogus" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is bogus</font></td></tr><tr><td align="left" port="r3">send (command invalid)</td></tr></table>>];
+ "connected" -> "connected query is bogus";
+ "connected query is bogus" -> "connected";
 
  "defaults" [shape = "doublecircle"];
  "defaults ping" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping</font></td></tr><tr><td align="left" port="r3">send (pong)</td></tr></table>>];

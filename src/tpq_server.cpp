@@ -22,6 +22,11 @@
 #include "icl/interval.hpp"
 #include "icl/interval_map.hpp"
 
+#include <map>
+#include <vector>
+#include <algorithm>
+#include <unordered_set>
+
 typedef int64_t imkey_t;
 typedef boost::icl::interval<imkey_t>::interval_type iminterval_t;
 
@@ -47,11 +52,11 @@ struct payload_t {
     iminterval_t interval() const {
         return iminterval_t::right_open(tstart, tstart+tspan);
     }
-    
-    // fixme: place holder.  tailor to actual send idiom.
-    // Caller takes ownership of return.
-    zmsg_t* msg() const {
-        return zmsg_dup(_msg);
+
+    // Return original message as encoded frame ready to append to
+    // another message.  Caller takes ownership of returned frame
+    zframe_t* encode() const {
+        return zmsg_encode(_msg);
     }
 };
 
@@ -72,9 +77,10 @@ struct request_t {
     int64_t tstart;             // tend is the key
     uint32_t seqno;
 };
-// keyed by END of requested interval.
-// any pending requests with keys after queue end may be serviced.
-typedef std::map<imkey_t, request_t> request_queue_t;
+// Keyed by END of requested interval.
+// Any pending requests with keys after queue end may be serviced.
+// Multiple requests may have intervals with coinciding ends.
+typedef std::map<imkey_t, std::vector<request_t> > request_queue_t;
 
 
 //  This structure defines the context for each running server. Store
@@ -88,6 +94,7 @@ struct _server_t {
 
     //  server properties
     zsock_t* ingest;            // PTMP message input
+    uint64_t detmask;           // the detector ID mask supported by server
 
     immap_t iq;                 // interval queue
     size_t iq_lwm{10000};       // low water mark iterative size
@@ -209,25 +216,28 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
         self->iq += std::make_pair(ptr->interval(), imset_t{ptr});
     }
     // 2. check queued, execute "result available" on client
-    int64_t queue_tend = boost::icl::last(self->iq);
-    std::vector<request_t> tokill;
+    int64_t queue_beg = boost::icl::lower(self->iq);
+    int64_t queue_end = boost::icl::upper(self->iq);
+    std::vector<request_queue_t::iterator> tokill;
     for (auto it = self->pending.begin(); it != self->pending.end(); ++it) {
         int64_t tend = it->first;
-        if (tend >= queue_tend) {
+        if (tend >= queue_end) {
             break;
         }
-        request_t& req = it->second;
-        tpq_codec_set_detmask(req.client->message, req.detmask);
-        tpq_codec_set_seqno(req.client->message, req.seqno);
-        tpq_codec_set_tstart(req.client->message, req.tstart);
-        tpq_codec_set_tspan(req.client->message, tend - req.tstart);
-        engine_send_event(req.client, result_available_event);
+        for (auto& req : it->second) {
+            tpq_codec_set_seqno(req.client->message, req.seqno);
+            tpq_codec_set_status(req.client->message, 200);
+            engine_send_event(req.client, query_is_satisfied_event);
+        }
+        tokill.push_back(it);
+    }
+    for (auto dead : tokill) {
+        self->pending.erase(dead);
     }
 
     // 3. maybe purge
-    int64_t queue_tstart = boost::icl::first(self->iq);
-    if (queue_tend - queue_tstart > self->iq_hwm) {
-        self->iq -= iminterval_t::right_open(0, queue_tend - self->iq_lwm);
+    if (queue_end - queue_beg > self->iq_hwm) {
+        self->iq -= iminterval_t::right_open(0, queue_end - self->iq_lwm);
     }
 
     return 0;
@@ -308,13 +318,34 @@ check_query (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  set_result
+//  set_payload
 //
 
-static void
-set_result (client_t *self)
+bool payload_lt(const imvalue_t& a, const imvalue_t& b)
 {
+    return a->tstart < b->tstart;
+}
 
+static void
+set_payload (client_t *self)
+{
+    uint64_t tbeg = tpq_codec_tstart(self->message);
+    uint64_t tend = tpq_codec_tspan(self->message) + tbeg;
+    server_t* server = self->server;
+    iminterval_t want = iminterval_t::right_open(tbeg, tend);
+    auto got = server->iq & want;
+    std::set<imvalue_t> unique;
+    for (auto one : got) {
+        unique.insert(one.second.begin(), one.second.end());
+    }
+    std::vector<imvalue_t> ordered(unique.begin(), unique.end());
+    std::sort(ordered.begin(), ordered.end(), payload_lt);
+    zmsg_t* plmsg = zmsg_new();
+    for (auto one : ordered) {
+        zframe_t* frame = one->encode();
+        zmsg_append(plmsg, &frame);
+    }
+    tpq_codec_set_payload(self->message, &plmsg);
 }
 
 
@@ -325,7 +356,11 @@ set_result (client_t *self)
 static void
 push_query (client_t *self)
 {
-
+    const int64_t tbeg = tpq_codec_tstart(self->message);
+    const int64_t tend = tpq_codec_tspan(self->message) + tbeg;
+    const uint64_t detmask = tpq_codec_detmask(self->message);
+    uint32_t seqno = tpq_codec_seqno(self->message);
+    self->server->pending[tend].push_back({self, detmask, tbeg, seqno});
 }
 
 
@@ -337,4 +372,46 @@ static void
 signal_command_invalid (client_t *self)
 {
 
+}
+
+
+//  ---------------------------------------------------------------------------
+//  handle_query
+//
+
+static void
+handle_query (client_t *self)
+{
+    uint64_t want_detmask = tpq_codec_detmask(self->message);
+    if (! want_detmask & self->server->detmask) {
+        // return 500
+        engine_set_next_event(self, query_is_bogus_event);        
+    }
+    int64_t query_beg = tpq_codec_tstart(self->message);
+    int64_t query_end = tpq_codec_tspan(self->message) + query_beg;
+
+    int64_t queue_beg = boost::icl::lower(self->server->iq);
+    int64_t queue_end = boost::icl::upper(self->server->iq);
+    if (query_end <= queue_beg) {
+        // return 404, not found
+        engine_set_next_event(self, query_is_fully_late_event);        
+    }
+
+    else if (query_end <= queue_end) {
+        if (query_beg < queue_end) {
+            // return 206, partial content
+            tpq_codec_set_status(self->message, 206);
+            engine_set_next_event(self, query_is_partly_late_event);
+        }
+        else {
+            // return 200, success
+            tpq_codec_set_status(self->message, 206);
+            engine_set_next_event(self, query_is_satisfied_event);
+        }
+    }        
+
+    else {
+        // add to pending
+        engine_set_next_event(self, query_is_delayed_event);
+    }
 }
