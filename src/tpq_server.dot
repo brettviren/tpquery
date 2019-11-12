@@ -15,12 +15,9 @@ digraph "tpq_server" {
  "connected query is fully late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is fully late</font></td></tr><tr><td align="left" port="r3">send (not found)</td></tr></table>>];
  "connected" -> "connected query is fully late";
  "connected query is fully late" -> "connected";
- "connected query is partly late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is partly late</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (partial content)</td></tr></table>>];
+ "connected query is partly late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is partly late</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
  "connected" -> "connected query is partly late";
  "connected query is partly late" -> "connected";
- "connected query is delayed" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is delayed</font></td></tr><tr><td align="left" port="r3">push query</td></tr></table>>];
- "connected" -> "connected query is delayed";
- "connected query is delayed" -> "connected";
  "connected query is satisfied" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is satisfied</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
  "connected" -> "connected query is satisfied";
  "connected query is satisfied" -> "connected";

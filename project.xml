@@ -14,7 +14,8 @@
        header = "ptmp/api.h"
        language = "C++" />
 
-  <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
+       <!-- use-cxx-gcc-4-9 = "true" -->
+  <classfilename use-cxx = "true" 
                  pkgincludedir = "false" keep-tree = "true" pretty-print = "no"
                  source-extension = "cpp" header-extension = "hpp" />
   

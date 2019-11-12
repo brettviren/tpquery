@@ -57,11 +57,6 @@ src_tpquery_selftest_LDADD = ${program_libs}
 src_tpquery_selftest_SOURCES = src/tpquery_selftest.cpp
 endif #ENABLE_TPQUERY_SELFTEST
 
-# Install api files into /usr/local/share/zproject
-apidir = @datadir@/zproject/tpquery
-dist_api_DATA = \
-    api/tpq_codec.api
-
 # define custom target for all products of /src
 src: \
 		src/tpquery_selftest \

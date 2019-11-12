@@ -31,11 +31,7 @@
 
     <event name = "query is partly late">
       <action name = "set payload" />
-      <action name = "send" message = "PARTIAL CONTENT" />
-    </event>
-
-    <event name = "query is delayed">
-      <action name = "push query"/>
+      <action name = "send" message = "RESULT" />
     </event>
 
     <event name = "query is satisfied">

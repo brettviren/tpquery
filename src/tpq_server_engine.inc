@@ -38,13 +38,12 @@ typedef enum {
     query_event = 3,
     query_is_fully_late_event = 4,
     query_is_partly_late_event = 5,
-    query_is_delayed_event = 6,
-    query_is_satisfied_event = 7,
-    query_is_bogus_event = 8,
-    ping_event = 9,
-    goodbye_event = 10,
-    expired_event = 11,
-    exception_event = 12
+    query_is_satisfied_event = 6,
+    query_is_bogus_event = 7,
+    ping_event = 8,
+    goodbye_event = 9,
+    expired_event = 10,
+    exception_event = 11
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -64,7 +63,6 @@ s_event_name [] = {
     "QUERY",
     "query_is_fully_late",
     "query_is_partly_late",
-    "query_is_delayed",
     "query_is_satisfied",
     "query_is_bogus",
     "PING",
@@ -145,8 +143,6 @@ static void
     handle_query (client_t *self);
 static void
     set_payload (client_t *self);
-static void
-    push_query (client_t *self);
 static void
     signal_command_invalid (client_t *self);
 
@@ -622,22 +618,13 @@ s_client_execute (s_client_t *self, event_t event)
                         set_payload (&self->client);
                     }
                     if (!self->exception) {
-                        //  send PARTIAL_CONTENT
+                        //  send RESULT
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send PARTIAL_CONTENT",
+                            zsys_debug ("%s:         $ send RESULT",
                                 self->log_prefix);
-                        tpq_codec_set_id (self->server->message, TPQ_CODEC_PARTIAL_CONTENT);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_RESULT);
                         tpq_codec_set_routing_id (self->server->message, self->routing_id);
                         tpq_codec_send (self->server->message, self->server->router);
-                    }
-                }
-                else
-                if (self->event == query_is_delayed_event) {
-                    if (!self->exception) {
-                        //  push query
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ push query", self->log_prefix);
-                        push_query (&self->client);
                     }
                 }
                 else

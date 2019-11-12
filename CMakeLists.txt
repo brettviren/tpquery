@@ -212,15 +212,11 @@ ENDIF (NOT MSVC)
 
 # shared
 if (TPQUERY_BUILD_SHARED)
-  IF (APPLE)
+  IF (MSVC)
     add_library(tpquery SHARED ${tpquery_sources})
-  ELSE (APPLE)
-    IF (MSVC)
-      add_library(tpquery SHARED ${tpquery_sources})
-    ELSE (MSVC)
-      add_library(tpquery SHARED $<TARGET_OBJECTS:tpquery_objects>)
-    ENDIF (MSVC)
-  ENDIF(APPLE)
+  ELSE (MSVC)
+    add_library(tpquery SHARED $<TARGET_OBJECTS:tpquery_objects>)
+  ENDIF (MSVC)
 
   set_target_properties (tpquery PROPERTIES
     PUBLIC_HEADER "${public_headers}"
@@ -252,15 +248,11 @@ endif()
 
 # static
 if (TPQUERY_BUILD_STATIC)
-  IF (APPLE)
+  IF (MSVC)
     add_library(tpquery-static STATIC ${tpquery_sources})
-  ELSE (APPLE)
-    IF (MSVC)
-      add_library(tpquery-static STATIC ${tpquery_sources})
-    ELSE (MSVC)
-      add_library(tpquery-static STATIC $<TARGET_OBJECTS:tpquery_objects>)
-    ENDIF (MSVC)
-  ENDIF (APPLE)
+  ELSE (MSVC)
+    add_library(tpquery-static STATIC $<TARGET_OBJECTS:tpquery_objects>)
+  ENDIF (MSVC)
 
   set_target_properties(tpquery-static PROPERTIES
     PUBLIC_HEADER "${public_headers}"
