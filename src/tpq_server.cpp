@@ -435,82 +435,28 @@ set_coverage (client_t *self)
 //  ---------------------------------------------------------------------------
 //  Selftest
 
-#include "ptmp/data.h"
-
-static void
-s_tpset_send(zsock_t* sock, uint64_t tstart, uint32_t tspan)
-{
-    static int count = 0;
-    ++count;
-    ptmp::data::TPSet tpset;
-    tpset.set_count(count);
-    tpset.set_created(ptmp::data::now());
-    tpset.set_detid(0xdeadbeaf);
-    tpset.set_tstart(tstart);
-    tpset.set_tspan(tspan);
-    ptmp::internals::send(sock, tpset);
-}
-
-static
-ptmp::data::TPSet s_tpset_recv(zframe_t* frame)
-{
-    zmsg_t* msg = zmsg_decode(frame);
-    assert(msg);
-    ptmp::data::TPSet tpset;
-    ptmp::internals::recv(&msg, tpset);
-    assert(tpset.detid() == 0xdeadbeaf);
-    return tpset;
-}
-
+#include "tpq_test_util.inc"
 void
 tpq_server_test (bool verbose)
 {
     zsys_init();
     zsys_debug("tpq_server: ");
 
-    zsock_t *spigot = zsock_new (ZMQ_PUSH);
-    zsock_bind(spigot, "ipc://@/tpq_ingest");
+    const char* server_address = "ipc://@/tpq-server";
+    const char* spigot_address = "ipc://@/tpq-spigot";
+
+    zsock_t *spigot = zsock_new(ZMQ_PUSH);
+    zsock_bind(spigot, spigot_address, NULL);
 
     //  @selftest
-    zactor_t *server = zactor_new (tpq_server, (char*)"server");
-    if (verbose)
-        zstr_send (server, "VERBOSE");
-    zstr_sendx (server, "BIND", "ipc://@/tpq_server", NULL);
-    
-    json server_config = {
-        { "input", {
-                { "socket", {
-                        { "connect", "ipc://@/tpq_ingest"},
-                        { "type", "PULL" } } } } } };
-
-    std::string tmp = server_config.dump();
-    zstr_sendx(server, "INGEST", tmp.c_str(), NULL);
-    char* answer = zstr_recv(server);
-    if (verbose)
-        zsys_debug(answer);
-    assert(streq(answer, "INGEST OK"));
-    free (answer);
-
     uint64_t detmask = 0xFFFFFFFFFFFFFFFF;
-    zsock_send(server, "s8", "DETMASK", detmask);
-    answer = zstr_recv(server);
-    if (verbose)
-        zsys_debug(answer);    
-    assert(streq(answer, "DETMASK OK"));
-    free (answer);
-
-    zsock_send(server, "s88", "QUEUE", 2100, 4100);
-    answer = zstr_recv(server);
-    if (verbose)
-        zsys_debug(answer);    
-    assert(streq(answer, "QUEUE OK"));
-    free (answer);
-
+    zactor_t* server = s_setup_server(server_address, spigot_address,
+                                      detmask, verbose);
 
     zsock_t *client = zsock_new (ZMQ_DEALER);
     assert (client);
     zsock_set_rcvtimeo (client, 2000);
-    zsock_connect (client, "ipc://@/tpq_server");
+    zsock_connect (client, server_address, NULL);
 
     // Send some TPSets in to server
     s_tpset_send(spigot, 1000, 100);

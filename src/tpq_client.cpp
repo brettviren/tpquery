@@ -227,21 +227,43 @@ signal_bad_endpoint (client_t *self)
 //  ---------------------------------------------------------------------------
 //  Selftest
 
+#include "json.hpp"
+using json = nlohmann::json;
+
+#include "tpq_test_util.inc"
 void
 tpq_client_test (bool verbose)
 {
-    printf (" * tpq_client: ");
-    if (verbose)
-        printf ("\n");
+    zsys_init();
+    zsys_debug("tpq_client: ");
 
-    //  @selftest
+    const char* server_address = "ipc://@/tpq-server-client";
+    const char* spigot_address = "ipc://@/tpq-spigot-server";
+    
+    zsock_t *spigot = zsock_new(ZMQ_PUSH);
+    zsock_bind(spigot, spigot_address, NULL);
+
+    uint64_t detmask = 0xFFFFFFFFFFFFFFFF;
+    zactor_t* server = s_setup_server(server_address, spigot_address,
+                                      detmask, verbose);
+
+    // Send some TPSets in to server
+    s_tpset_send(spigot, 1000, 100);
+    s_tpset_send(spigot, 2000, 100);
+    s_tpset_send(spigot, 3000, 100);
+    s_tpset_send(spigot, 4000, 100);
+    s_tpset_send(spigot, 5000, 100);
+    s_tpset_send(spigot, 6000, 100);
+
     // TODO: fill this out
     tpq_client_t *client = tpq_client_new ();
     tpq_client_set_verbose(client, verbose);
 
-    int rc = tpq_client_say_hello(client, "tpq-test-client", "tcp://127.0.0.1:5678");
+    int rc = tpq_client_say_hello(client, "tpq-test-client",
+                                  server_address);
     assert(rc >= 0);
-    
+    zsys_debug("sent hello");
+
     rc = tpq_client_query(client, 1000, 100, 0xFFFFFFFFFFFFFFFF, 1000);
     assert (rc >= 0);
 
