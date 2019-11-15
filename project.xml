@@ -30,6 +30,9 @@
 
   <target name = "autotools" />
 
+  <!-- a PTMP component providing tpq_server -->
+  <extra name = "tpqsvc.cpp" />
+
 
 </project>
     

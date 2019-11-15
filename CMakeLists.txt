@@ -159,6 +159,7 @@ message(STATUS "Detected TPQUERY Version - ${TPQUERY_VERSION}")
 set (tpquery_headers
     include/tpquery_library.hpp
     include/tpquery.hpp
+    src/tpqsvc.cpp
 )
 
 IF (ENABLE_DRAFTS)

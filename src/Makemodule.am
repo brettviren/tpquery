@@ -13,6 +13,7 @@ lib_LTLIBRARIES += src/libtpquery.la
 pkgconfig_DATA = src/libtpquery.pc
 
 src_libtpquery_la_SOURCES = \
+    src/tpqsvc.cpp \
     src/platform.h
 
 if ENABLE_DRAFTS
@@ -20,7 +21,8 @@ src_libtpquery_la_SOURCES += \
     src/tpq_codec.cpp \
     src/tpq_server.cpp \
     src/tpq_server_engine.inc \
-    src/tpq_client.cpp
+    src/tpq_client.cpp \
+    src/tpq_client_engine.inc
 
 endif
 
