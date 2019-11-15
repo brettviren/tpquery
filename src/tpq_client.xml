@@ -19,6 +19,10 @@
       <action name = "connect to server" />
       <action name = "send" message = "HELLO" />
     </event>
+    <event name = "bad endpoint">
+      <action name = "signal bad endpoint" />
+      <action name = "terminate" />
+    </event>
   </state>
 
   <state name = "expect coverage" inherit = "defaults">
@@ -90,6 +94,7 @@
   <method name = "say hello" return = "status">
     Connect to and say hello to server at endpoint, providing our nickname.
     <field name = "nickname" type = "string" />
+    <field name = "endpoint" type = "string" />
     <accept reply = "CONNECTED" />
     <accept reply = "FAILURE" />
   </method>
@@ -103,7 +108,10 @@
       A tspan value.
     </field>
     <field name = "detmask" type = "number" size = "8">
-      Detector ID mask
+      Detector ID mask.
+    </field>
+    <field name = "timeout" type = "number" size = "4">
+      Timeout in msec after no activity.
     </field>
     <accept reply = "RESULT"/>
     <accept reply = "FAILURE"/>

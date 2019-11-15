@@ -36,6 +36,7 @@ typedef struct {
     //  specific application properties
     int heartbeat_timer;        //  Timeout for heartbeats to server
     int retries;                //  How many heartbeats we've tried
+    int seqno;
 
 } client_t;
 
@@ -61,25 +62,6 @@ client_terminate (client_t *self)
 }
 
 
-//  ---------------------------------------------------------------------------
-//  Selftest
-
-void
-tpq_client_test (bool verbose)
-{
-    printf (" * tpq_client: ");
-    if (verbose)
-        printf ("\n");
-
-    //  @selftest
-    // TODO: fill this out
-    tpq_client_t *client = tpq_client_new ();
-    tpq_client_set_verbose(client, verbose);
-    tpq_client_destroy (&client);
-    //  @end
-    printf ("OK\n");
-}
-
 
 //  ---------------------------------------------------------------------------
 //  set_nickname
@@ -88,6 +70,8 @@ tpq_client_test (bool verbose)
 static void
 set_nickname (client_t *self)
 {
+    zsys_debug("client nickname is %s", self->args->nickname);
+    tpq_codec_set_nickname(self->message, self->args->nickname);
 }
 
 
@@ -98,6 +82,7 @@ set_nickname (client_t *self)
 static void
 use_connect_timeout (client_t *self)
 {
+    engine_set_timeout (self, self->args->timeout);
 }
 
 
@@ -108,6 +93,10 @@ use_connect_timeout (client_t *self)
 static void
 connect_to_server (client_t *self)
 {
+    if (zsock_connect (self->dealer, "%s", self->args->endpoint)) {
+        engine_set_exception (self, bad_endpoint_event);
+        zsys_warning ("could not connect to %s", self->args->endpoint);
+    }
 }
 
 
@@ -118,6 +107,8 @@ connect_to_server (client_t *self)
 static void
 signal_connected (client_t *self)
 {
+    const char *nickname = tpq_codec_nickname (self->message);
+    zsock_send (self->cmdpipe, "sis", "CONNECTED", 0, nickname);
 }
 
 
@@ -141,6 +132,11 @@ client_is_connected (client_t *self)
 static void
 set_query (client_t *self)
 {
+    tpq_codec_set_seqno(self->message, ++self->seqno);
+    tpq_codec_set_tstart(self->message, self->args->tstart);
+    tpq_codec_set_tspan(self->message, self->args->tspan);
+    tpq_codec_set_detmask(self->message, self->args->detmask);
+    tpq_codec_set_timeout(self->message, self->args->timeout);
 }
 
 
@@ -186,6 +182,12 @@ check_if_connection_is_dead (client_t *self)
 static void
 check_status_code (client_t *self)
 {
+    if (tpq_codec_status (self->message) == TPQ_CODEC_COMMAND_INVALID) {
+        engine_set_next_event (self, command_invalid_event);
+    }
+    else {
+        engine_set_next_event (self, other_event);
+    }
 }
 
 
@@ -196,6 +198,8 @@ check_status_code (client_t *self)
 static void
 signal_internal_error (client_t *self)
 {
+    zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Internal server error");
+    zsock_send (self->msgpipe, "sis", "FAILURE", -1, "Internal server error");
 }
 
 
@@ -206,4 +210,42 @@ signal_internal_error (client_t *self)
 static void
 signal_unhandled_error (client_t *self)
 {
+}
+
+
+
+//  ---------------------------------------------------------------------------
+//  signal_bad_endpoint
+//
+
+static void
+signal_bad_endpoint (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Selftest
+
+void
+tpq_client_test (bool verbose)
+{
+    printf (" * tpq_client: ");
+    if (verbose)
+        printf ("\n");
+
+    //  @selftest
+    // TODO: fill this out
+    tpq_client_t *client = tpq_client_new ();
+    tpq_client_set_verbose(client, verbose);
+
+    int rc = tpq_client_say_hello(client, "tpq-test-client", "tcp://127.0.0.1:5678");
+    assert(rc >= 0);
+    
+    rc = tpq_client_query(client, 1000, 100, 0xFFFFFFFFFFFFFFFF, 1000);
+    assert (rc >= 0);
+
+    tpq_client_destroy (&client);
+    //  @end
+    printf ("OK\n");
 }

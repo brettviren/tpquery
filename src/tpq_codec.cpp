@@ -41,6 +41,7 @@ struct _tpq_codec_t {
     uint32_t seqno;                     //  A message sequence number.
     uint64_t tstart;                    //  A tstart value.
     uint64_t tspan;                     //  A tspan value.
+    uint32_t timeout;                   //  Timeout in msec
     uint16_t status;                    //  The 3-digit status code related to the result.
     zmsg_t *payload;                    //  A msg holding one frame per TPSet.
     char reason [256];                  //  Printable explanation
@@ -440,6 +441,22 @@ tpq_codec_t *
             }
             self->detmask = uvalue;
             }
+            {
+            char *es = NULL;
+            char *s = zconfig_get (content, "timeout", NULL);
+            if (!s) {
+                zsys_error ("content/timeout not found");
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
+            if (es != s+strlen (s)) {
+                zsys_error ("content/timeout: %s is not a number", s);
+                tpq_codec_destroy (&self);
+                return NULL;
+            }
+            self->timeout = uvalue;
+            }
             break;
         case TPQ_CODEC_RESULT:
             content = zconfig_locate (config, "content");
@@ -589,6 +606,7 @@ tpq_codec_dup (tpq_codec_t *other)
     tpq_codec_set_seqno (copy, tpq_codec_seqno (other));
     tpq_codec_set_tstart (copy, tpq_codec_tstart (other));
     tpq_codec_set_tspan (copy, tpq_codec_tspan (other));
+    tpq_codec_set_timeout (copy, tpq_codec_timeout (other));
     tpq_codec_set_status (copy, tpq_codec_status (other));
     {
         zmsg_t *dup_msg = zmsg_dup (tpq_codec_payload (other));
@@ -657,6 +675,7 @@ tpq_codec_recv (tpq_codec_t *self, zsock_t *input)
             GET_NUMBER8 (self->tstart);
             GET_NUMBER8 (self->tspan);
             GET_NUMBER8 (self->detmask);
+            GET_NUMBER4 (self->timeout);
             break;
 
         case TPQ_CODEC_RESULT:
@@ -730,6 +749,7 @@ tpq_codec_send (tpq_codec_t *self, zsock_t *output)
             frame_size += 8;            //  tstart
             frame_size += 8;            //  tspan
             frame_size += 8;            //  detmask
+            frame_size += 4;            //  timeout
             break;
         case TPQ_CODEC_RESULT:
             frame_size += 4;            //  seqno
@@ -763,6 +783,7 @@ tpq_codec_send (tpq_codec_t *self, zsock_t *output)
             PUT_NUMBER8 (self->tstart);
             PUT_NUMBER8 (self->tspan);
             PUT_NUMBER8 (self->detmask);
+            PUT_NUMBER4 (self->timeout);
             break;
 
         case TPQ_CODEC_RESULT:
@@ -821,6 +842,7 @@ tpq_codec_print (tpq_codec_t *self)
             zsys_debug ("    tstart=%ld", (long) self->tstart);
             zsys_debug ("    tspan=%ld", (long) self->tspan);
             zsys_debug ("    detmask=%ld", (long) self->detmask);
+            zsys_debug ("    timeout=%ld", (long) self->timeout);
             break;
 
         case TPQ_CODEC_RESULT:
@@ -919,6 +941,7 @@ tpq_codec_zpl (tpq_codec_t *self, zconfig_t *parent)
             zconfig_putf (config, "tstart", "%ld", (long) self->tstart);
             zconfig_putf (config, "tspan", "%ld", (long) self->tspan);
             zconfig_putf (config, "detmask", "%ld", (long) self->detmask);
+            zconfig_putf (config, "timeout", "%ld", (long) self->timeout);
             break;
             }
         case TPQ_CODEC_RESULT:
@@ -1202,6 +1225,24 @@ tpq_codec_set_tspan (tpq_codec_t *self, uint64_t tspan)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the timeout field
+
+uint32_t
+tpq_codec_timeout (tpq_codec_t *self)
+{
+    assert (self);
+    return self->timeout;
+}
+
+void
+tpq_codec_set_timeout (tpq_codec_t *self, uint32_t timeout)
+{
+    assert (self);
+    self->timeout = timeout;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the status field
 
 uint16_t
@@ -1367,6 +1408,7 @@ tpq_codec_test (bool verbose)
     tpq_codec_set_tstart (self, 123);
     tpq_codec_set_tspan (self, 123);
     tpq_codec_set_detmask (self, 123);
+    tpq_codec_set_timeout (self, 123);
     // convert to zpl
     config = tpq_codec_zpl (self, NULL);
     if (verbose)
@@ -1390,6 +1432,7 @@ tpq_codec_test (bool verbose)
         assert (tpq_codec_tstart (self) == 123);
         assert (tpq_codec_tspan (self) == 123);
         assert (tpq_codec_detmask (self) == 123);
+        assert (tpq_codec_timeout (self) == 123);
         if (instance == 2) {
             tpq_codec_destroy (&self);
             self = self_temp;

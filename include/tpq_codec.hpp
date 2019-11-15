@@ -32,6 +32,7 @@
         tstart              number 8    A tstart value.
         tspan               number 8    A tspan value.
         detmask             number 8    Detector ID mask
+        timeout             number 4    Timeout in msec
 
     RESULT -
         seqno               number 4    A message sequence number.
@@ -160,6 +161,12 @@ uint64_t
     tpq_codec_tspan (tpq_codec_t *self);
 void
     tpq_codec_set_tspan (tpq_codec_t *self, uint64_t tspan);
+
+//  Get/set the timeout field
+uint32_t
+    tpq_codec_timeout (tpq_codec_t *self);
+void
+    tpq_codec_set_timeout (tpq_codec_t *self, uint32_t timeout);
 
 //  Get/set the status field
 uint16_t

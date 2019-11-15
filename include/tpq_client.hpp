@@ -61,12 +61,12 @@ bool
 //  Connect to and say hello to server at endpoint, providing our nickname.
 //  Returns >= 0 if successful, -1 if interrupted.
 uint16_t
-    tpq_client_say_hello (tpq_client_t *self, const char *nickname);
+    tpq_client_say_hello (tpq_client_t *self, const char *nickname, const char *endpoint);
 
 //  Request TPs.
 //  Returns >= 0 if successful, -1 if interrupted.
 uint16_t
-    tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t detmask);
+    tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t detmask, uint32_t timeout);
 
 //  Return last received seqno
 uint32_t

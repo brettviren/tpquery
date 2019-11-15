@@ -30,18 +30,19 @@ typedef enum {
 typedef enum {
     NULL_event = 0,
     say_hello_event = 1,
-    coverage_event = 2,
-    query_event = 3,
-    result_event = 4,
-    destructor_event = 5,
-    goodbye_ok_event = 6,
-    expired_event = 7,
-    pong_event = 8,
-    error_event = 9,
-    exception_event = 10,
-    command_invalid_event = 11,
-    other_event = 12,
-    hello_ok_event = 13
+    bad_endpoint_event = 2,
+    coverage_event = 3,
+    query_event = 4,
+    result_event = 5,
+    destructor_event = 6,
+    goodbye_ok_event = 7,
+    expired_event = 8,
+    pong_event = 9,
+    error_event = 10,
+    exception_event = 11,
+    command_invalid_event = 12,
+    other_event = 13,
+    hello_ok_event = 14
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -60,6 +61,7 @@ static const char *
 s_event_name [] = {
     "(NONE)",
     "say_hello",
+    "bad_endpoint",
     "COVERAGE",
     "QUERY",
     "RESULT",
@@ -83,9 +85,11 @@ s_event_name [] = {
 //  These are the different method arguments we manage automatically
 struct _client_args_t {
     char *nickname;
+    char *endpoint;
     uint64_t tstart;
     uint64_t tspan;
     uint64_t detmask;
+    uint32_t timeout;
 };
 
 typedef struct {
@@ -133,6 +137,8 @@ static void
     use_connect_timeout (client_t *self);
 static void
     connect_to_server (client_t *self);
+static void
+    signal_bad_endpoint (client_t *self);
 static void
     signal_connected (client_t *self);
 static void
@@ -197,6 +203,7 @@ s_client_destroy (s_client_t **self_p)
     if (*self_p) {
         s_client_t *self = *self_p;
         zstr_free (&self->args.nickname);
+        zstr_free (&self->args.endpoint);
         client_terminate (&self->client);
         tpq_codec_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -429,6 +436,21 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_coverage_state;
+                }
+                else
+                if (self->event == bad_endpoint_event) {
+                    if (!self->exception) {
+                        //  signal bad endpoint
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal bad endpoint", self->log_prefix);
+                        signal_bad_endpoint (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
                 }
                 else {
                     //  Handle unexpected internal events
@@ -934,12 +956,13 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "SAY HELLO")) {
         zstr_free (&self->args.nickname);
-        zsock_recv (self->cmdpipe, "s", &self->args.nickname);
+        zstr_free (&self->args.endpoint);
+        zsock_recv (self->cmdpipe, "ss", &self->args.nickname, &self->args.endpoint);
         s_client_execute (self, say_hello_event);
     }
     else
     if (streq (method, "QUERY")) {
-        zsock_recv (self->cmdpipe, "888", &self->args.tstart, &self->args.tspan, &self->args.detmask);
+        zsock_recv (self->cmdpipe, "8884", &self->args.tstart, &self->args.tspan, &self->args.detmask, &self->args.timeout);
         s_client_execute (self, query_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
@@ -1205,11 +1228,11 @@ s_accept_reply (tpq_client_t *self, ...)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 uint16_t
-tpq_client_say_hello (tpq_client_t *self, const char *nickname)
+tpq_client_say_hello (tpq_client_t *self, const char *nickname, const char *endpoint)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss", "SAY HELLO", nickname);
+    zsock_send (self->actor, "sss", "SAY HELLO", nickname, endpoint);
     if (s_accept_reply (self, "CONNECTED", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1221,11 +1244,11 @@ tpq_client_say_hello (tpq_client_t *self, const char *nickname)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 uint16_t
-tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t detmask)
+tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t detmask, uint32_t timeout)
 {
     assert (self);
 
-    zsock_send (self->actor, "s888", "QUERY", tstart, tspan, detmask);
+    zsock_send (self->actor, "s8884", "QUERY", tstart, tspan, detmask, timeout);
     if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;

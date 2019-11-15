@@ -19,11 +19,12 @@ The following ABNF grammar defines the Trigger Primitive Queue Codec:
 
     ;  Request TPSets
 
-    QUERY           = signature %d3 seqno tstart tspan detmask
+    QUERY           = signature %d3 seqno tstart tspan detmask timeout
     seqno           = number-4              ; A message sequence number.
     tstart          = number-8              ; A tstart value.
     tspan           = number-8              ; A tspan value.
     detmask         = number-8              ; Detector ID mask
+    timeout         = number-4              ; Timeout in msec
 
     ;  No description
 
