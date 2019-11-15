@@ -29,6 +29,7 @@ all_tests [] = {
 // Tests for draft public classes:
     { "tpq_codec", tpq_codec_test, false, true, NULL },
     { "tpq_server", tpq_server_test, false, true, NULL },
+    { "tpq_client", tpq_client_test, false, true, NULL },
 #endif // TPQUERY_BUILD_DRAFT_API
     {NULL, NULL, 0, 0, NULL}          //  Sentinel
 };

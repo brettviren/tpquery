@@ -165,6 +165,7 @@ IF (ENABLE_DRAFTS)
     list(APPEND tpquery_headers
         include/tpq_codec.hpp
         include/tpq_server.hpp
+        include/tpq_client.hpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -184,6 +185,7 @@ IF (ENABLE_DRAFTS)
     list (APPEND tpquery_sources
         src/tpq_codec.cpp
         src/tpq_server.cpp
+        src/tpq_client.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -385,6 +387,7 @@ IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
     tpq_codec
     tpq_server
+    tpq_client
     )
 ENDIF (ENABLE_DRAFTS)
 

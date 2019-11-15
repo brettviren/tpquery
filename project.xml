@@ -22,11 +22,11 @@
   
   <class name = "tpq_codec" />
   <class name = "tpq_server" />
-  <!-- 
   <class name = "tpq_client" />
-  -->
+
   <model name = "tpq_codec" />
   <model name = "tpq_server" />
+  <model name = "tpq_client" />
 
   <target name = "autotools" />
 

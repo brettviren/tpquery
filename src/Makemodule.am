@@ -19,7 +19,8 @@ if ENABLE_DRAFTS
 src_libtpquery_la_SOURCES += \
     src/tpq_codec.cpp \
     src/tpq_server.cpp \
-    src/tpq_server_engine.inc
+    src/tpq_server_engine.inc \
+    src/tpq_client.cpp
 
 endif
 
@@ -66,6 +67,7 @@ src: \
 code:
 	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q tpq_codec.xml
 	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q tpq_server.xml
+	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q tpq_client.xml
 	cd $(srcdir); gsl -target:- project.xml
 
 # Directories with test fixtures optionally provided by the project,

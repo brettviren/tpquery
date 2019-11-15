@@ -1,0 +1,60 @@
+## Automatically generated from tpq_client.xml by gsl
+digraph "tpq_client" {
+ "expect coverage" -> "defaults" [style=dotted,arrowhead=empty]
+ "connected" -> "defaults" [style=dotted,arrowhead=empty]
+ "reconnecting" -> "defaults" [style=dotted,arrowhead=empty]
+
+ "start" [shape = "doublecircle"];
+ "start say hello" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">say hello</font></td></tr><tr><td align="left" port="r3">set nickname</td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">connect to server</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
+ "start" -> "start say hello";
+ "start say hello" -> "expect coverage";
+
+ "expect coverage" [shape = "doublecircle"];
+ "expect coverage coverage" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">coverage</font></td></tr><tr><td align="left" port="r3">signal connected</td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
+ "expect coverage" -> "expect coverage coverage";
+ "expect coverage coverage" -> "connected";
+
+ "connected" [shape = "doublecircle"];
+ "connected query" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query</font></td></tr><tr><td align="left" port="r3">set query</td></tr><tr><td align="left" port="r3">send (query)</td></tr></table>>];
+ "connected" -> "connected query";
+ "connected query" -> "connected";
+ "connected result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">signal result</td></tr></table>>];
+ "connected" -> "connected result";
+ "connected result" -> "connected";
+
+ "defaults" [shape = "doublecircle"];
+ "defaults destructor" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];
+ "defaults" -> "defaults destructor";
+ "defaults destructor" -> "defaults";
+ "defaults goodbye ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">goodbye ok</font></td></tr><tr><td align="left" port="r3">signal success</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults goodbye ok";
+ "defaults goodbye ok" -> "defaults";
+ "defaults expired" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">check if connection is dead</td></tr><tr><td align="left" port="r3">send (ping)</td></tr></table>>];
+ "defaults" -> "defaults expired";
+ "defaults expired" -> "defaults";
+ "defaults pong" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">pong</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
+ "defaults" -> "defaults pong";
+ "defaults pong" -> "defaults";
+ "defaults error" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">error</font></td></tr><tr><td align="left" port="r3">check status code</td></tr></table>>];
+ "defaults" -> "defaults error";
+ "defaults error" -> "have error";
+ "defaults exception" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr></table>>];
+ "defaults" -> "defaults exception";
+ "defaults exception" -> "defaults";
+ "defaults *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal internal error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults *";
+ "defaults *" -> "defaults";
+
+ "have error" [shape = "doublecircle"];
+ "have error command invalid" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">command invalid</font></td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
+ "have error" -> "have error command invalid";
+ "have error command invalid" -> "reconnecting";
+ "have error other" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">other</font></td></tr><tr><td align="left" port="r3">signal unhandled error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "have error" -> "have error other";
+ "have error other" -> "have error";
+
+ "reconnecting" [shape = "doublecircle"];
+ "reconnecting hello ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
+ "reconnecting" -> "reconnecting hello ok";
+ "reconnecting hello ok" -> "connected";
+}

@@ -69,6 +69,8 @@ typedef struct _tpq_codec_t tpq_codec_t;
 #define TPQ_CODEC_T_DEFINED
 typedef struct _tpq_server_t tpq_server_t;
 #define TPQ_SERVER_T_DEFINED
+typedef struct _tpq_client_t tpq_client_t;
+#define TPQ_CLIENT_T_DEFINED
 #endif // TPQUERY_BUILD_DRAFT_API
 
 
@@ -76,6 +78,7 @@ typedef struct _tpq_server_t tpq_server_t;
 #ifdef TPQUERY_BUILD_DRAFT_API
 #include "tpq_codec.hpp"
 #include "tpq_server.hpp"
+#include "tpq_client.hpp"
 #endif // TPQUERY_BUILD_DRAFT_API
 
 #ifdef TPQUERY_BUILD_DRAFT_API
