@@ -60,21 +60,25 @@ bool
 
 //  Connect to and say hello to server at endpoint, providing our nickname.
 //  Returns >= 0 if successful, -1 if interrupted.
-uint16_t
+int
     tpq_client_say_hello (tpq_client_t *self, const char *nickname, const char *endpoint);
 
 //  Request TPs.
 //  Returns >= 0 if successful, -1 if interrupted.
-uint16_t
+int
     tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t detmask, uint32_t timeout);
+
+//  Return last received status
+int
+    tpq_client_status (tpq_client_t *self);
+
+//  Return last received detmask
+uint64_t
+    tpq_client_detmask (tpq_client_t *self);
 
 //  Return last received seqno
 uint32_t
     tpq_client_seqno (tpq_client_t *self);
-
-//  Return last received status
-uint16_t
-    tpq_client_status (tpq_client_t *self);
 
 //  Return last received payload
 zmsg_t *

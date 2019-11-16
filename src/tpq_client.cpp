@@ -37,6 +37,7 @@ typedef struct {
     int heartbeat_timer;        //  Timeout for heartbeats to server
     int retries;                //  How many heartbeats we've tried
     int seqno;
+    uint64_t detmask;           // detmask of server
 
 } client_t;
 
@@ -107,8 +108,10 @@ connect_to_server (client_t *self)
 static void
 signal_connected (client_t *self)
 {
-    const char *nickname = tpq_codec_nickname (self->message);
-    zsock_send (self->cmdpipe, "sis", "CONNECTED", 0, nickname);
+    self->detmask = tpq_codec_detmask(self->message);
+    zsys_debug("tpq_client: connected to server with detmask 0x%lx",
+               self->detmask);
+    zsock_send (self->cmdpipe, "si8", "CONNECTED", 0, self->detmask);
 }
 
 
@@ -147,6 +150,17 @@ set_query (client_t *self)
 static void
 signal_result (client_t *self)
 {
+    int seqno = tpq_codec_seqno(self->message);
+    int status = tpq_codec_status(self->message);
+    zmsg_t* msg = tpq_codec_payload(self->message);
+
+    zsys_debug("tpq_client: signal_result: seqno %d, status %d, %ld objs",
+               seqno, status, zmsg_size(msg));
+    assert(msg);
+    msg = zmsg_dup(msg);
+    assert(msg);    
+    zsock_send(self->cmdpipe, "s42p", "RESULT",
+               seqno, status, msg);
 }
 
 
@@ -235,7 +249,8 @@ void
 tpq_client_test (bool verbose)
 {
     zsys_init();
-    zsys_debug("tpq_client: ");
+    if (verbose) 
+        zsys_debug("tpq_client: ");
 
     const char* server_address = "ipc://@/tpq-server-client";
     const char* spigot_address = "ipc://@/tpq-spigot-server";
@@ -262,12 +277,26 @@ tpq_client_test (bool verbose)
     int rc = tpq_client_say_hello(client, "tpq-test-client",
                                   server_address);
     assert(rc >= 0);
-    zsys_debug("sent hello");
+    if (verbose)
+        zsys_debug("tpq-client-test: sent hello");
 
-    rc = tpq_client_query(client, 1000, 100, 0xFFFFFFFFFFFFFFFF, 1000);
+    rc = tpq_client_query(client, 4000, 100, 0xFFFFFFFFFFFFFFFF, 10000);
     assert (rc >= 0);
 
+    if (verbose) {
+        zsys_debug("tpq-client-test: seqno %d, status %d",
+                   tpq_client_seqno(client),
+                   tpq_client_status(client));
+        zmsg_t* msg = tpq_client_payload(client);
+        assert(msg);
+        zsys_debug("tpq-client-test: %ld objects",
+                   zmsg_size(msg));
+    }
+
     tpq_client_destroy (&client);
+    zactor_destroy(&server);
+    zsock_destroy(&spigot);
+
     //  @end
     printf ("OK\n");
 }

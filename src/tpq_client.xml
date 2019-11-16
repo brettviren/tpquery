@@ -117,6 +117,11 @@
     <accept reply = "FAILURE"/>
   </method>
 
+  <reply name = "CONNECTED">
+    <field name = "status" type = "integer" />
+    <field name = "detmask" type = "number" size = "8" />
+  </reply>
+
   <reply name = "RESULT">
     <field name = "seqno"  type = "number" size = "4">Query sequence number</field>
     <field name = "status" type = "number" size = "2">Status code</field>

@@ -1078,8 +1078,9 @@ struct _tpq_client_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
     bool connected;             //  Client currently connected or not
+    int status;                 //  Returned by actor reply
+    uint64_t detmask;           //  Returned by actor reply
     uint32_t seqno;             //  Returned by actor reply
-    uint16_t status;            //  Returned by actor reply
     zmsg_t *payload;            //  Returned by actor reply
     char *reason;               //  Returned by actor reply
 };
@@ -1194,6 +1195,10 @@ s_accept_reply (tpq_client_t *self, ...)
         char *filter = va_arg (args, char *);
         while (filter) {
             if (streq (reply, filter)) {
+                if (streq (reply, "CONNECTED")) {
+                    zsock_recv (self->actor, "i8", &self->status, &self->detmask);
+                }
+                else
                 if (streq (reply, "RESULT")) {
                     zmsg_destroy (&self->payload);
                     zsock_recv (self->actor, "42p", &self->seqno, &self->status, &self->payload);
@@ -1227,7 +1232,7 @@ s_accept_reply (tpq_client_t *self, ...)
 //  Connect to and say hello to server at endpoint, providing our nickname.
 //  Returns >= 0 if successful, -1 if interrupted.
 
-uint16_t
+int
 tpq_client_say_hello (tpq_client_t *self, const char *nickname, const char *endpoint)
 {
     assert (self);
@@ -1243,7 +1248,7 @@ tpq_client_say_hello (tpq_client_t *self, const char *nickname, const char *endp
 //  Request TPs.
 //  Returns >= 0 if successful, -1 if interrupted.
 
-uint16_t
+int
 tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t detmask, uint32_t timeout)
 {
     assert (self);
@@ -1256,6 +1261,28 @@ tpq_client_query (tpq_client_t *self, uint64_t tstart, uint64_t tspan, uint64_t 
 
 
 //  ---------------------------------------------------------------------------
+//  Return last received status
+
+int
+tpq_client_status (tpq_client_t *self)
+{
+    assert (self);
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received detmask
+
+uint64_t
+tpq_client_detmask (tpq_client_t *self)
+{
+    assert (self);
+    return self->detmask;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Return last received seqno
 
 uint32_t
@@ -1263,17 +1290,6 @@ tpq_client_seqno (tpq_client_t *self)
 {
     assert (self);
     return self->seqno;
-}
-
-
-//  ---------------------------------------------------------------------------
-//  Return last received status
-
-uint16_t
-tpq_client_status (tpq_client_t *self)
-{
-    assert (self);
-    return self->status;
 }
 
 
