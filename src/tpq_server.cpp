@@ -196,8 +196,8 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
             engine_handle_socket(self, self->ingest, s_server_handle_ingest);
         }
         else {
-            zsys_error("tpq_server: failed to create ingest socket\n%s",
-                       input.c_str());
+            // zsys_error("tpq_server: failed to create ingest socket\n%s",
+            //            input.c_str());
         }
         free(cfgstr);
         reply = zmsg_new();
@@ -206,7 +206,7 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
 
     else if (streq (method, "DETMASK")) {
         self->detmask = poplong(msg);
-        zsys_debug("tpq_server: set detmask to 0x%lx", self->detmask);
+        //zsys_debug("tpq_server: set detmask to 0x%lx", self->detmask);
         reply = zmsg_new();
         zmsg_addstr(reply, "DETMASK OK");
     }
@@ -214,7 +214,7 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
     else if (streq (method, "QUEUE")) {
         self->iq_lwm = poplong(msg);
         self->iq_hwm = poplong(msg);
-        zsys_debug("tpq_server: queue lwm=%ld hwm=%ld", self->iq_lwm, self->iq_hwm);
+        //zsys_debug("tpq_server: queue lwm=%ld hwm=%ld", self->iq_lwm, self->iq_hwm);
         reply = zmsg_new();
         zmsg_addstr(reply, "QUEUE OK");
     }
@@ -250,27 +250,27 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
         }
         int64_t queue_end = boost::icl::upper((*self->iq));
         int64_t queue_beg = boost::icl::lower((*self->iq));
-        zsys_debug("tpq_server: ingest: queue: %ld %ld from %ld + %ld",
-                   queue_beg, queue_end, ptr->tstart, ptr->tspan);
+        // zsys_debug("tpq_server: ingest: queue: %ld %ld from %ld + %ld",
+        //            queue_beg, queue_end, ptr->tstart, ptr->tspan);
 
     }
 
     int64_t queue_end = boost::icl::upper((*self->iq));
     int64_t queue_beg = boost::icl::lower((*self->iq));
-    zsys_debug("tpq_server: ingest: queue: %ld %ld with %ld pending",
-               queue_beg, queue_end, self->pending->size());
+    // zsys_debug("tpq_server: ingest: queue: %ld %ld with %ld pending",
+    //            queue_beg, queue_end, self->pending->size());
 
     // 2. check queued, execute "result available" on client
     std::vector<request_queue_t::iterator> tokill;
     for (auto it = self->pending->begin(); it != self->pending->end(); ++it) {
         int64_t tend = it->first;
         if (tend > queue_end) {
-            zsys_debug("\tpending: %ld > %ld", tend, queue_end);
+            //zsys_debug("\tpending: %ld > %ld", tend, queue_end);
             break;
         }
         for (auto& req : it->second) {
-            zsys_debug("tpq_server: ingest: send #%d query %ld %ld",
-                       req.seqno, req.tstart, tend);
+            // zsys_debug("tpq_server: ingest: send #%d query %ld %ld",
+            //            req.seqno, req.tstart, tend);
 
             tpq_codec_set_seqno(req.client->message, req.seqno);
             tpq_codec_set_status(req.client->message, 200);
@@ -291,8 +291,8 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
 
         int64_t nend = boost::icl::upper((*self->iq));
         int64_t nbeg = boost::icl::lower((*self->iq));
-        zsys_debug("tpq_server: purge from %ld %ld to %ld %ld (%ld)",
-                   queue_beg, queue_end, nbeg, nend, new_beg);
+        // zsys_debug("tpq_server: purge from %ld %ld to %ld %ld (%ld)",
+        //            queue_beg, queue_end, nbeg, nend, new_beg);
     }
 
     return 0;
@@ -349,8 +349,8 @@ set_payload (client_t *self)
     }
     int64_t queue_end = boost::icl::upper((*server->iq));
     int64_t queue_beg = boost::icl::lower((*server->iq));
-    zsys_debug("tpq_server: payload %ld %ld with %ld frames from queue %ld %ld",
-               tbeg, tend, ordered.size(), queue_beg, queue_end);
+    // zsys_debug("tpq_server: payload %ld %ld with %ld frames from queue %ld %ld",
+    //            tbeg, tend, ordered.size(), queue_beg, queue_end);
     tpq_codec_set_payload(self->message, &plmsg);
 }
 
@@ -365,7 +365,7 @@ handle_query (client_t *self)
     const uint64_t want_detmask = tpq_codec_detmask(self->message);
     if (! want_detmask & self->server->detmask) {
         // return 500
-        zsys_debug("tpq_server: query: detmask mismatch");
+        zsys_error("tpq_server: query: detmask mismatch");
         engine_set_next_event(self, query_is_bogus_event);        
         return;
     }
@@ -374,12 +374,12 @@ handle_query (client_t *self)
 
     const int64_t queue_beg = boost::icl::lower(*self->server->iq);
     const int64_t queue_end = boost::icl::upper(*self->server->iq);
-    zsys_debug("tpq_server: query: %ld %ld", query_beg, query_end);
-    zsys_debug("tpq_server: queue: %ld %ld", queue_beg, queue_end);
+    // zsys_debug("tpq_server: query: %ld %ld", query_beg, query_end);
+    // zsys_debug("tpq_server: queue: %ld %ld", queue_beg, queue_end);
 
     if (query_end <= queue_beg) {
         // return 404, not found
-        zsys_debug("tpq_server: query: too late");
+        //zsys_debug("tpq_server: query: too late");
         engine_set_next_event(self, query_is_fully_late_event);        
         return;
     }
@@ -387,14 +387,14 @@ handle_query (client_t *self)
     else if (query_end <= queue_end) {
         if (query_beg < queue_end) {
             // return 206, partial content
-            zsys_debug("tpq_server: query: partly late");
+            //zsys_debug("tpq_server: query: partly late");
             tpq_codec_set_status(self->message, 206);
             engine_set_next_event(self, query_is_partly_late_event);
             return;
         }
         else {
             // return 200, success
-            zsys_debug("tpq_server: query: got one");
+            //zsys_debug("tpq_server: query: got one");
             tpq_codec_set_status(self->message, 206);
             engine_set_next_event(self, query_is_satisfied_event);
             return;
@@ -403,7 +403,7 @@ handle_query (client_t *self)
 
     else {
         // add to pending
-        zsys_debug("tpq_server: query: wait with %ld %ld", query_beg, query_end);
+        //zsys_debug("tpq_server: query: wait with %ld %ld", query_beg, query_end);
         (*self->server->pending)[query_end].push_back({self, want_detmask, query_beg, seqno});
         return;
     }
@@ -412,13 +412,24 @@ handle_query (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  signal_command_invalid
+//  set_not_found
 //
 
 static void
-signal_command_invalid (client_t *self)
+set_not_found (client_t *self)
 {
+    tpq_codec_set_status(self->message, TPQ_CODEC_NOT_FOUND);
+}
 
+
+//  ---------------------------------------------------------------------------
+//  set_command_invalid
+//
+
+static void
+set_command_invalid (client_t *self)
+{
+    tpq_codec_set_status(self->message, TPQ_CODEC_COMMAND_INVALID);
 }
 
 
@@ -523,7 +534,8 @@ tpq_server_test (bool verbose)
     rc = tpq_codec_recv(request, client);
     assert(rc == 0);            // should NOT be interrupted
 
-    zsys_debug("Got back id %d", tpq_codec_id(request));
+    if (verbose)
+        zsys_debug("Got back id %d", tpq_codec_id(request));
     assert(tpq_codec_id(request) == TPQ_CODEC_RESULT);    
     assert(tpq_codec_seqno(request) == 2);
     msg = tpq_codec_payload(request);
@@ -538,9 +550,6 @@ tpq_server_test (bool verbose)
     assert(tpset.tstart() == 5000);
     tpset = s_tpset_recv(zmsg_next(msg));
     assert(tpset.tstart() == 6000);
-
-    
-
 
     tpq_codec_destroy (&request);
 

@@ -1,0 +1,136 @@
+digraph tpq_codec {
+  label="tpq_server and tpq_codec";
+  labelloc="top";
+  s_start [shape = "doublecircle", label="start"];
+  s_connected [shape = "doublecircle", label="connected"];
+  s_defaults [shape = "doublecircle", label="defaults"];
+ m_start_hello [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">HELLO</font></td></tr>
+<tr><td align="right" bgcolor="gray">nickname</td><td align="left" bgcolor="gray">[string]<br/></td></tr>
+<tr><td colspan="2" align="center">set coverage</td></tr>
+<tr><td colspan="2" align="center" port="coverage">send (COVERAGE)</td></tr>
+</table>>
+];
+ m_connected_query [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">QUERY</font></td></tr>
+<tr><td align="right" bgcolor="gray">seqno</td><td align="left" bgcolor="gray">[number*4]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">tstart</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">tspan</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">detmask</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">timeout</td><td align="left" bgcolor="gray">[number*4]<br/></td></tr>
+<tr><td colspan="2" align="center">handle query</td></tr>
+</table>>
+];
+ m_connected_query_is_fully_late [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">query is fully late</font></td></tr>
+<tr><td colspan="2" align="center">set not found</td></tr>
+<tr><td colspan="2" align="center" port="error">send (ERROR)</td></tr>
+</table>>
+];
+ m_connected_query_is_partly_late [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">query is partly late</font></td></tr>
+<tr><td colspan="2" align="center">set payload</td></tr>
+<tr><td colspan="2" align="center" port="result">send (RESULT)</td></tr>
+</table>>
+];
+ m_connected_query_is_satisfied [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">query is satisfied</font></td></tr>
+<tr><td colspan="2" align="center">set payload</td></tr>
+<tr><td colspan="2" align="center" port="result">send (RESULT)</td></tr>
+</table>>
+];
+ m_connected_query_is_bogus [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">query is bogus</font></td></tr>
+<tr><td colspan="2" align="center">set command invalid</td></tr>
+<tr><td colspan="2" align="center" port="error">send (ERROR)</td></tr>
+</table>>
+];
+ m_defaults_ping [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">PING</font></td></tr>
+<tr><td colspan="2" align="center" port="pong">send (PONG)</td></tr>
+</table>>
+];
+ m_defaults_goodbye [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">GOODBYE</font></td></tr>
+<tr><td colspan="2" align="center" port="goodbye_ok">send (GOODBYE_OK)</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_defaults_expired [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">expired</font></td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_defaults_exception [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">exception</font></td></tr>
+<tr><td colspan="2" align="center" port="error">send (ERROR)</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_defaults__ [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">*</font></td></tr>
+<tr><td colspan="2" align="center">set command invalid</td></tr>
+<tr><td colspan="2" align="center" port="error">send (ERROR)</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_coverage [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">COVERAGE</font></td></tr>
+<tr><td align="right" bgcolor="gray">detmask</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+</table>>
+];
+ m_result [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">RESULT</font></td></tr>
+<tr><td align="right" bgcolor="gray">seqno</td><td align="left" bgcolor="gray">[number*4]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">status</td><td align="left" bgcolor="gray">[number*2]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">payload</td><td align="left" bgcolor="gray">[msg]<br/></td></tr>
+</table>>
+];
+ m_pong [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">PONG</font></td></tr>
+</table>>
+];
+ m_goodbye_ok [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">GOODBYE OK</font></td></tr>
+</table>>
+];
+ m_error [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">ERROR</font></td></tr>
+<tr><td align="right" bgcolor="gray">status</td><td align="left" bgcolor="gray">[number*2]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">reason</td><td align="left" bgcolor="gray">[string]<br/></td></tr>
+</table>>
+];
+  s_start -> "s_defaults" [style="dashed", arrowhead="onormal"];
+  s_connected -> "s_defaults" [style="dashed", arrowhead="onormal"];
+ s_start -> m_start_hello [style="solid"];
+ s_connected -> m_start_hello [dir="back", style="solid"];
+ m_start_hello:coverage -> m_coverage [style = "dotted", arrowhead="ovee"];
+ s_connected -> m_connected_query [style="solid"];
+ s_connected -> m_connected_query [dir="back", style="solid"];
+ s_connected -> m_connected_query_is_fully_late [style="solid"];
+ s_connected -> m_connected_query_is_fully_late [dir="back", style="solid"];
+ m_connected_query_is_fully_late:error -> m_error [style = "dotted", arrowhead="ovee"];
+ s_connected -> m_connected_query_is_partly_late [style="solid"];
+ s_connected -> m_connected_query_is_partly_late [dir="back", style="solid"];
+ m_connected_query_is_partly_late:result -> m_result [style = "dotted", arrowhead="ovee"];
+ s_connected -> m_connected_query_is_satisfied [style="solid"];
+ s_connected -> m_connected_query_is_satisfied [dir="back", style="solid"];
+ m_connected_query_is_satisfied:result -> m_result [style = "dotted", arrowhead="ovee"];
+ s_connected -> m_connected_query_is_bogus [style="solid"];
+ s_connected -> m_connected_query_is_bogus [dir="back", style="solid"];
+ m_connected_query_is_bogus:error -> m_error [style = "dotted", arrowhead="ovee"];
+ s_defaults -> m_defaults_ping [style="solid"];
+ s_defaults -> m_defaults_ping [dir="back", style="solid"];
+ m_defaults_ping:pong -> m_pong [style = "dotted", arrowhead="ovee"];
+ s_defaults -> m_defaults_goodbye [style="solid"];
+ s_defaults -> m_defaults_goodbye [dir="back", style="solid"];
+ m_defaults_goodbye:goodbye_ok -> m_goodbye_ok [style = "dotted", arrowhead="ovee"];
+ s_defaults -> m_defaults_expired [style="solid"];
+ s_defaults -> m_defaults_expired [dir="back", style="solid"];
+ s_defaults -> m_defaults_exception [style="solid"];
+ s_defaults -> m_defaults_exception [dir="back", style="solid"];
+ m_defaults_exception:error -> m_error [style = "dotted", arrowhead="ovee"];
+ s_defaults -> m_defaults__ [style="solid"];
+ s_defaults -> m_defaults__ [dir="back", style="solid"];
+ m_defaults__:error -> m_error [style = "dotted", arrowhead="ovee"];
+}

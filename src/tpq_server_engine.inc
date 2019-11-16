@@ -142,9 +142,11 @@ static void
 static void
     handle_query (client_t *self);
 static void
+    set_not_found (client_t *self);
+static void
     set_payload (client_t *self);
 static void
-    signal_command_invalid (client_t *self);
+    set_command_invalid (client_t *self);
 
 //  ---------------------------------------------------------------------------
 //  These methods are an internal API for actions
@@ -565,10 +567,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else {
                     //  Handle unexpected protocol events
                     if (!self->exception) {
-                        //  signal command invalid
+                        //  set command invalid
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ signal command invalid", self->log_prefix);
-                        signal_command_invalid (&self->client);
+                            zsys_debug ("%s:         $ set command invalid", self->log_prefix);
+                        set_command_invalid (&self->client);
                     }
                     if (!self->exception) {
                         //  send ERROR
@@ -600,11 +602,17 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == query_is_fully_late_event) {
                     if (!self->exception) {
-                        //  send NOT_FOUND
+                        //  set not found
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send NOT_FOUND",
+                            zsys_debug ("%s:         $ set not found", self->log_prefix);
+                        set_not_found (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send ERROR
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send ERROR",
                                 self->log_prefix);
-                        tpq_codec_set_id (self->server->message, TPQ_CODEC_NOT_FOUND);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_ERROR);
                         tpq_codec_set_routing_id (self->server->message, self->routing_id);
                         tpq_codec_send (self->server->message, self->server->router);
                     }
@@ -648,11 +656,17 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == query_is_bogus_event) {
                     if (!self->exception) {
-                        //  send COMMAND_INVALID
+                        //  set command invalid
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send COMMAND_INVALID",
+                            zsys_debug ("%s:         $ set command invalid", self->log_prefix);
+                        set_command_invalid (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send ERROR
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send ERROR",
                                 self->log_prefix);
-                        tpq_codec_set_id (self->server->message, TPQ_CODEC_COMMAND_INVALID);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_ERROR);
                         tpq_codec_set_routing_id (self->server->message, self->routing_id);
                         tpq_codec_send (self->server->message, self->server->router);
                     }
@@ -717,10 +731,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else {
                     //  Handle unexpected protocol events
                     if (!self->exception) {
-                        //  signal command invalid
+                        //  set command invalid
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ signal command invalid", self->log_prefix);
-                        signal_command_invalid (&self->client);
+                            zsys_debug ("%s:         $ set command invalid", self->log_prefix);
+                        set_command_invalid (&self->client);
                     }
                     if (!self->exception) {
                         //  send ERROR
@@ -800,10 +814,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else {
                     //  Handle unexpected protocol events
                     if (!self->exception) {
-                        //  signal command invalid
+                        //  set command invalid
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ signal command invalid", self->log_prefix);
-                        signal_command_invalid (&self->client);
+                            zsys_debug ("%s:         $ set command invalid", self->log_prefix);
+                        set_command_invalid (&self->client);
                     }
                     if (!self->exception) {
                         //  send ERROR

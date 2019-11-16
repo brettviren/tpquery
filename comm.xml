@@ -1,0 +1,11 @@
+<class
+    name="tpq_codec"
+    title = "TP Query Codec"
+    script = "src/zproto_comm_dot"
+    server_file = "src/tpq_server.xml"
+    codec_file = "src/tpq_codec.xml"
+    client_file = "src/tpq_client.xml"
+    >
+
+
+</class>

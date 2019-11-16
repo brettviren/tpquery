@@ -26,7 +26,8 @@
     <!-- exceptions from handle query -->
 
     <event name = "query is fully late">
-      <action name = "send" message = "NOT FOUND" />
+      <action name = "set not found" />
+      <action name = "send" message = "ERROR" />
     </event>
 
     <event name = "query is partly late">
@@ -40,7 +41,8 @@
     </event>
 
     <event name = "query is bogus">
-      <action name = "send" message = "COMMAND INVALID" />
+      <action name = "set command invalid" />
+      <action name = "send" message = "ERROR" />
     </event>
   </state>
   
@@ -68,7 +70,7 @@
 
     <!-- All other protocol messages are invalid -->
     <event name = "*">
-      <action name = "signal command invalid" />
+      <action name = "set command invalid" />
       <action name = "send" message = "ERROR" />
       <action name = "terminate" />
     </event>

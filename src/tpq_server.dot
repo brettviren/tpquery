@@ -12,7 +12,7 @@ digraph "tpq_server" {
  "connected query" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query</font></td></tr><tr><td align="left" port="r3">handle query</td></tr></table>>];
  "connected" -> "connected query";
  "connected query" -> "connected";
- "connected query is fully late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is fully late</font></td></tr><tr><td align="left" port="r3">send (not found)</td></tr></table>>];
+ "connected query is fully late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is fully late</font></td></tr><tr><td align="left" port="r3">set not found</td></tr><tr><td align="left" port="r3">send (error)</td></tr></table>>];
  "connected" -> "connected query is fully late";
  "connected query is fully late" -> "connected";
  "connected query is partly late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is partly late</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
@@ -21,7 +21,7 @@ digraph "tpq_server" {
  "connected query is satisfied" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is satisfied</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
  "connected" -> "connected query is satisfied";
  "connected query is satisfied" -> "connected";
- "connected query is bogus" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is bogus</font></td></tr><tr><td align="left" port="r3">send (command invalid)</td></tr></table>>];
+ "connected query is bogus" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is bogus</font></td></tr><tr><td align="left" port="r3">set command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr></table>>];
  "connected" -> "connected query is bogus";
  "connected query is bogus" -> "connected";
 
@@ -38,7 +38,7 @@ digraph "tpq_server" {
  "defaults exception" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
  "defaults" -> "defaults exception";
  "defaults exception" -> "defaults";
- "defaults *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">set command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
  "defaults" -> "defaults *";
  "defaults *" -> "defaults";
 }

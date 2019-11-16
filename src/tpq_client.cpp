@@ -71,7 +71,7 @@ client_terminate (client_t *self)
 static void
 set_nickname (client_t *self)
 {
-    zsys_debug("client nickname is %s", self->args->nickname);
+    //zsys_debug("client nickname is %s", self->args->nickname);
     tpq_codec_set_nickname(self->message, self->args->nickname);
 }
 
@@ -109,8 +109,8 @@ static void
 signal_connected (client_t *self)
 {
     self->detmask = tpq_codec_detmask(self->message);
-    zsys_debug("tpq_client: connected to server with detmask 0x%lx",
-               self->detmask);
+    // zsys_debug("tpq_client: connected to server with detmask 0x%lx",
+    //            self->detmask);
     zsock_send (self->cmdpipe, "si8", "CONNECTED", 0, self->detmask);
 }
 
@@ -154,8 +154,8 @@ signal_result (client_t *self)
     int status = tpq_codec_status(self->message);
     zmsg_t* msg = tpq_codec_payload(self->message);
 
-    zsys_debug("tpq_client: signal_result: seqno %d, status %d, %ld objs",
-               seqno, status, zmsg_size(msg));
+    // zsys_debug("tpq_client: signal_result: seqno %d, status %d, %ld objs",
+    //            seqno, status, zmsg_size(msg));
     assert(msg);
     msg = zmsg_dup(msg);
     assert(msg);    
@@ -287,8 +287,10 @@ tpq_client_test (bool verbose)
         zsys_debug("tpq-client-test: seqno %d, status %d",
                    tpq_client_seqno(client),
                    tpq_client_status(client));
-        zmsg_t* msg = tpq_client_payload(client);
-        assert(msg);
+    }
+    zmsg_t* msg = tpq_client_payload(client);
+    assert(msg);
+    if (verbose) {
         zsys_debug("tpq-client-test: %ld objects",
                    zmsg_size(msg));
     }

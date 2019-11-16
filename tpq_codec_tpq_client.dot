@@ -1,0 +1,177 @@
+digraph tpq_codec {
+  label="tpq_client and tpq_codec";
+  labelloc="top";
+  s_start [shape = "doublecircle", label="start"];
+  s_expect_coverage [shape = "doublecircle", label="expect coverage"];
+  s_connected [shape = "doublecircle", label="connected"];
+  s_defaults [shape = "doublecircle", label="defaults"];
+  s_have_error [shape = "doublecircle", label="have error"];
+  s_reconnecting [shape = "doublecircle", label="reconnecting"];
+ m_start_say_hello [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">say hello</font></td></tr>
+<tr><td colspan="2" align="center">set nickname</td></tr>
+<tr><td colspan="2" align="center">use connect timeout</td></tr>
+<tr><td colspan="2" align="center">connect to server</td></tr>
+<tr><td colspan="2" align="center" port="hello">send (HELLO)</td></tr>
+</table>>
+];
+ m_start_bad_endpoint [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">bad endpoint</font></td></tr>
+<tr><td colspan="2" align="center">signal bad endpoint</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_expect_coverage_coverage [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">COVERAGE</font></td></tr>
+<tr><td align="right" bgcolor="gray">detmask</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td colspan="2" align="center">signal connected</td></tr>
+<tr><td colspan="2" align="center">client is connected</td></tr>
+</table>>
+];
+ m_connected_query [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">query</font></td></tr>
+<tr><td colspan="2" align="center">set query</td></tr>
+<tr><td colspan="2" align="center" port="query">send (QUERY)</td></tr>
+</table>>
+];
+ m_connected_result [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">RESULT</font></td></tr>
+<tr><td align="right" bgcolor="gray">seqno</td><td align="left" bgcolor="gray">[number*4]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">status</td><td align="left" bgcolor="gray">[number*2]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">payload</td><td align="left" bgcolor="gray">[msg]<br/></td></tr>
+<tr><td colspan="2" align="center">signal result</td></tr>
+</table>>
+];
+ m_defaults_destructor [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">destructor</font></td></tr>
+<tr><td colspan="2" align="center" port="goodbye">send (GOODBYE)</td></tr>
+</table>>
+];
+ m_defaults_goodbye_ok [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">GOODBYE OK</font></td></tr>
+<tr><td colspan="2" align="center">signal success</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_defaults_expired [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">expired</font></td></tr>
+<tr><td colspan="2" align="center">check if connection is dead</td></tr>
+<tr><td colspan="2" align="center" port="ping">send (PING)</td></tr>
+</table>>
+];
+ m_defaults_pong [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">PONG</font></td></tr>
+<tr><td colspan="2" align="center">client is connected</td></tr>
+</table>>
+];
+ m_defaults_error [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">ERROR</font></td></tr>
+<tr><td align="right" bgcolor="gray">status</td><td align="left" bgcolor="gray">[number*2]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">reason</td><td align="left" bgcolor="gray">[string]<br/></td></tr>
+<tr><td colspan="2" align="center">check status code</td></tr>
+</table>>
+];
+ m_defaults_exception [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">exception</font></td></tr>
+</table>>
+];
+ m_defaults__ [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">*</font></td></tr>
+<tr><td colspan="2" align="center">signal internal error</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_have_error_command_invalid [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">command invalid</font></td></tr>
+<tr><td colspan="2" align="center">use connect timeout</td></tr>
+<tr><td colspan="2" align="center" port="hello">send (HELLO)</td></tr>
+</table>>
+];
+ m_have_error_other [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">other</font></td></tr>
+<tr><td colspan="2" align="center">signal unhandled error</td></tr>
+<tr><td colspan="2" align="center">terminate</td></tr>
+</table>>
+];
+ m_reconnecting_hello_ok [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="black">HELLO OK</font></td></tr>
+<tr><td colspan="2" align="center">client is connected</td></tr>
+</table>>
+];
+ m_hello [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">HELLO</font></td></tr>
+<tr><td align="right" bgcolor="gray">nickname</td><td align="left" bgcolor="gray">[string]<br/></td></tr>
+</table>>
+];
+ m_query [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">QUERY</font></td></tr>
+<tr><td align="right" bgcolor="gray">seqno</td><td align="left" bgcolor="gray">[number*4]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">tstart</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">tspan</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">detmask</td><td align="left" bgcolor="gray">[number*8]<br/></td></tr>
+<tr><td align="right" bgcolor="gray">timeout</td><td align="left" bgcolor="gray">[number*4]<br/></td></tr>
+</table>>
+];
+ m_ping [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">PING</font></td></tr>
+</table>>
+];
+ m_goodbye [shape = "plaintext" style = "solid" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray30" colspan="2"><font color="white">GOODBYE</font></td></tr>
+</table>>
+];
+ f_say_hello [shape="plaintext" color="blue" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="blue">say hello</font></td></tr>
+<tr><td align="right" bgcolor="gray">nickname</td><td align="left" bgcolor="gray">[string]</td></tr>
+<tr><td align="right" bgcolor="gray">endpoint</td><td align="left" bgcolor="gray">[string]</td></tr>
+<tr><td colspan="2" align="center" bgcolor="gray">CONNECTED</td></tr><tr><td colspan="2" align="center" bgcolor="gray">FAILURE</td></tr></table>>
+];
+ f_query [shape="plaintext" color="blue" label = <<table border="1" cellborder="0" cellspacing="4" cellpadding="3" bgcolor="white">
+<tr><td style="ROUNDED" border="1" bgcolor="gray90" colspan="2"><font color="blue">query</font></td></tr>
+<tr><td align="right" bgcolor="gray">tstart</td><td align="left" bgcolor="gray">[number*8]</td></tr>
+<tr><td align="right" bgcolor="gray">tspan</td><td align="left" bgcolor="gray">[number*8]</td></tr>
+<tr><td align="right" bgcolor="gray">detmask</td><td align="left" bgcolor="gray">[number*8]</td></tr>
+<tr><td align="right" bgcolor="gray">timeout</td><td align="left" bgcolor="gray">[number*4]</td></tr>
+<tr><td colspan="2" align="center" bgcolor="gray">RESULT</td></tr><tr><td colspan="2" align="center" bgcolor="gray">FAILURE</td></tr></table>>
+];
+  s_expect_coverage -> "s_defaults" [style="dashed", arrowhead="onormal"];
+  s_connected -> "s_defaults" [style="dashed", arrowhead="onormal"];
+  s_reconnecting -> "s_defaults" [style="dashed", arrowhead="onormal"];
+ s_start -> m_start_say_hello [style="solid"];
+ s_expect_coverage -> m_start_say_hello [dir="back", style="solid"];
+ m_start_say_hello:hello -> m_hello [style = "dotted", arrowhead="ovee"];
+ s_start -> m_start_bad_endpoint [style="solid"];
+ s_start -> m_start_bad_endpoint [dir="back", style="solid"];
+ s_expect_coverage -> m_expect_coverage_coverage [style="solid"];
+ s_connected -> m_expect_coverage_coverage [dir="back", style="solid"];
+ s_connected -> m_connected_query [style="solid"];
+ s_connected -> m_connected_query [dir="back", style="solid"];
+ m_connected_query:query -> m_query [style = "dotted", arrowhead="ovee"];
+ s_connected -> m_connected_result [style="solid"];
+ s_connected -> m_connected_result [dir="back", style="solid"];
+ s_defaults -> m_defaults_destructor [style="solid"];
+ s_defaults -> m_defaults_destructor [dir="back", style="solid"];
+ m_defaults_destructor:goodbye -> m_goodbye [style = "dotted", arrowhead="ovee"];
+ s_defaults -> m_defaults_goodbye_ok [style="solid"];
+ s_defaults -> m_defaults_goodbye_ok [dir="back", style="solid"];
+ s_defaults -> m_defaults_expired [style="solid"];
+ s_defaults -> m_defaults_expired [dir="back", style="solid"];
+ m_defaults_expired:ping -> m_ping [style = "dotted", arrowhead="ovee"];
+ s_defaults -> m_defaults_pong [style="solid"];
+ s_defaults -> m_defaults_pong [dir="back", style="solid"];
+ s_defaults -> m_defaults_error [style="solid"];
+ s_have_error -> m_defaults_error [dir="back", style="solid"];
+ s_defaults -> m_defaults_exception [style="solid"];
+ s_defaults -> m_defaults_exception [dir="back", style="solid"];
+ s_defaults -> m_defaults__ [style="solid"];
+ s_defaults -> m_defaults__ [dir="back", style="solid"];
+ s_have_error -> m_have_error_command_invalid [style="solid"];
+ s_reconnecting -> m_have_error_command_invalid [dir="back", style="solid"];
+ m_have_error_command_invalid:hello -> m_hello [style = "dotted", arrowhead="ovee"];
+ s_have_error -> m_have_error_other [style="solid"];
+ s_have_error -> m_have_error_other [dir="back", style="solid"];
+ s_reconnecting -> m_reconnecting_hello_ok [style="solid"];
+ s_connected -> m_reconnecting_hello_ok [dir="back", style="solid"];
+  m_start_say_hello -> f_say_hello [dir="back", color="blue"];
+  m_connected_query -> f_query [dir="back", color="blue"];
+}
