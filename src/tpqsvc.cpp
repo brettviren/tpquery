@@ -24,6 +24,9 @@ public:
         assert(streq(answer, "INGEST OK"));
         free (answer);
     
+        std::string server_address = jcfg["service"];
+        zstr_sendx (m_actor, "BIND", server_address.c_str(), NULL);
+
         uint64_t detmask = 0xFFFFFFFFFFFFFFFF;
         if (jcfg["detmask"].is_number()) {
             detmask = jcfg["detmask"];

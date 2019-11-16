@@ -160,6 +160,7 @@ set (tpquery_headers
     include/tpquery_library.hpp
     include/tpquery.hpp
     src/tpqsvc.cpp
+    src/tpqclt.cpp
 )
 
 IF (ENABLE_DRAFTS)

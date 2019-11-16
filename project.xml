@@ -32,6 +32,7 @@
 
   <!-- a PTMP component providing tpq_server -->
   <extra name = "tpqsvc.cpp" />
+  <extra name = "tpqclt.cpp" />
 
 
 </project>

@@ -47,6 +47,7 @@ endif
 
 EXTRA_DIST += \
     src/tpqsvc.cpp \
+    src/tpqclt.cpp \
     src/tpquery_classes.hpp
 
 # NOTE: this "include" syntax is not a "make" but an "autotools" keyword,
