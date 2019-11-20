@@ -1,0 +1,38 @@
+digraph tpqsvctest {
+        label="3 APAs/test"
+        rankdir=LR
+        nodesep=1
+
+        subgraph custer_apa {
+                label="3 APAs/test"
+                subgraph cluster_link {
+                        label="10 links/APA"
+                        node[shape=circle]
+                        pub_replay[label="PUB"]
+                        sub_window1[label="SUB"]
+                        pub_window1[label="PUB"]
+                        sub_window2[label="SUB"]
+                        pub_window2[label="PUB"]
+                        node[shape=box]
+                        file
+                        replay
+                        bulk_window
+                        trig_window
+                }
+                node[shape=circle]
+                sub_tpqsvc[label="SUB"]
+                sub_tpqclt[label="SUB"]
+                r_tpqsvc[label="ROUTER"]
+                d_tpqclt[label="DEALER"]
+                node[shape=box]
+                tpqsvc
+                tpqclt
+                { rank=same r_tpqsvc, d_tpqclt }
+                { rank=same  tpqsvc tpqclt }
+
+        }
+        file->replay->pub_replay
+        pub_replay->sub_window1->bulk_window->pub_window1->sub_tpqsvc->tpqsvc
+        pub_replay->sub_window2->trig_window->pub_window2->sub_tpqclt->tpqclt
+        tpqsvc->r_tpqsvc->d_tpqclt->tpqclt[dir=both,style=dashed]
+}
