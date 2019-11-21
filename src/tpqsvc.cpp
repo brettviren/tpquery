@@ -19,7 +19,9 @@ public:
         }
         m_actor = zactor_new(tpq_server, (void*)name.c_str());
 
-        zstr_sendx(m_actor, "INGEST", config.c_str()); // {input: ...}
+        zsys_debug("%ld: %s", config.size(), config.c_str());
+
+        zstr_sendx(m_actor, "INGEST", config.c_str(), NULL); // {input: ...}
         char* answer = zstr_recv(m_actor);
         assert(streq(answer, "INGEST OK"));
         free (answer);

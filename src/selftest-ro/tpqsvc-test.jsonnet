@@ -40,13 +40,13 @@ local files = function(apa) std.map(function(link) {
                      osocket = ptmp.socket('bind','pair', url_file%al),
                      cfg = {
                          name:name,
-                         ifile: filepat%al
+                         ifile: datapat%al
                      })}.res, links);
 
 
 local replays = function(apa) std.map(function(link) {
     local al={apa:apa,link:link},
-    res: ptmp.replay("file%(apa)d%(link)02d"%al,
+    res: ptmp.replay("replay%(apa)d%(link)02d"%al,
                      isocket = ptmp.socket('connect','pair', url_file%al),
                      osocket = ptmp.socket('bind','pub', url_replay%al)),
 }.res, links);
@@ -84,27 +84,33 @@ local clients = function(apa) {
                          }),
 }.res;
 
-local generators = [
+local generators2d = [
     files,
     replays, 
     windows("bulk%(apa)d%(link)02d", url_winbulk, {tspan:1000/0.02, tbuf:5000/0.02}),
     windows("trig%(apa)d%(link)02d", url_wintrig, {tspan:50/0.02, tbuf:5000/0.02}),
+];
+local generators1d = [
     servers,
     clients,
 ];
 
+local cfgfilepat = "tpqsvc-test-apa%(apa)d.json";
 local mapgens = function(gens, apa) [g(apa) for g in gens];
 //[mapgens(generators, apa) for apa in apas]
-// mapgens(generators, 5)
+//std.flattenArrays(mapgens(generators2d, 5))
 
-local cfgfilepat = "tpqsvc-test-apa%(apa)d.json";
+
+
 
 {
     // jsonnet -m $outdir -e 'local p=import "tpqsvc-test.jsonnet"; p.cfggen'
     cfggen:: {
         [cfgfilepat%{apa:apa}] : {
             name: "apa%d"%apa,
-            proxies: mapgens(generators, apa),
+            plugins: ["tpquery"],
+            proxies: std.flattenArrays(mapgens(generators2d, apa))
+                + mapgens(generators1d, apa),
         } for apa in apas
     },
 
