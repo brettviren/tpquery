@@ -65,8 +65,9 @@ local servers = function(apa) {
                          osocket = null,
                          cfg = {
                              name: "tpqsvc%d"%apa,
+                             verbose: 1,
                              service: url_tpqsvc%al,
-                             detmask: std.parseHex("ffffffffffffffff"),
+                             detmask: "-1", // parsed as string by svc to uint64
                              queue: {lwm:5e8, hwm:10e8},
                          }),
 }.res;
@@ -80,7 +81,7 @@ local clients = function(apa) {
                              name: "tpqclt%d"%apa,
                              // fixme: replace with all APAs to up the challenge
                              service: url_tpqsvc%{apa:apa},
-                             minbias: 10000,
+                             minbias: 0.01,
                          }),
 }.res;
 

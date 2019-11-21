@@ -17,9 +17,14 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
     }
 
     double minbias = jcfg["minbias"];
-    zsock_t* isock = ptmp::internals::endpoint(jcfg["input"].dump());
-    
     std::string server_address = jcfg["service"];
+
+    zsys_debug("tpqclt %s minbias=%f server: %s",
+               name.c_str(), minbias, server_address.c_str());
+
+    zsock_signal(pipe,0);       // signal ready
+
+    zsock_t* isock = ptmp::internals::endpoint(jcfg["input"].dump());
     tpq_client_t* client = tpq_client_new();
     tpq_client_say_hello(client, name.c_str(), server_address.c_str());
 
@@ -43,7 +48,14 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
             // 1. parse to get t
             ptmp::data::TPSet tpset;
             ptmp::internals::recv(&msg, tpset);
+
             // 2. query
+            zsys_info("tpqclt: %d query %ld + %d %ld",
+                      count, 
+                      tpset.tstart(),
+                      tpset.tspan(),
+                      tpset.detid());
+
             int rc = tpq_client_query(client,
                                       tpset.tstart(),
                                       tpset.tspan(),
@@ -54,7 +66,7 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
             int status = tpq_client_status(client);
             msg = tpq_client_payload(client);
             int nframes = zmsg_size(msg);
-            zsys_info("%d %d %d %d", count, seqno, status, nframes);
+            zsys_info("tpclt: %d %d %d %d", count, seqno, status, nframes);
 
             count = 0;
             continue;
