@@ -68,7 +68,7 @@ local servers = function(apa) {
                              verbose: 1,
                              service: url_tpqsvc%al,
                              detmask: "-1", // parsed as string by svc to uint64
-                             queue: {lwm:5e8, hwm:10e8},
+                             queue: {lwm:1.9e8, hwm:2e8},
                          }),
 }.res;
 

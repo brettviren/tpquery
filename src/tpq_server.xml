@@ -27,7 +27,7 @@
 
     <event name = "query is fully late">
       <action name = "set not found" />
-      <action name = "send" message = "ERROR" />
+      <action name = "send" message = "RESULT" />
     </event>
 
     <event name = "query is partly late">

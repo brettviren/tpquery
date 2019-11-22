@@ -1,3 +1,6 @@
+// Note, this component is for testing tpqsvc and doesn't have much
+// practical use otherwise.
+
 #include "ptmp/api.h"
 #include "ptmp/actors.h"
 #include "ptmp/factory.h"
@@ -16,6 +19,10 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
         name = jcfg["name"];
     }
 
+    int verbose = 1;            // for now, hard code
+    if (jcfg["verbose"].is_number()) {
+        verbose = jcfg["verbose"];
+    }
     double minbias = jcfg["minbias"];
     std::string server_address = jcfg["service"];
 
@@ -50,12 +57,11 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
             ptmp::internals::recv(&msg, tpset);
 
             // 2. query
-            zsys_info("tpqclt: %d query %ld + %d %ld",
-                      count, 
-                      tpset.tstart(),
-                      tpset.tspan(),
-                      tpset.detid());
-
+            // zsys_info("tpqclt: #%d, detid: %ld query: %ld + %d",
+            //           count,
+            //           tpset.detid(),
+            //           tpset.tstart(),
+            //           tpset.tspan());
             int rc = tpq_client_query(client,
                                       tpset.tstart(),
                                       tpset.tspan(),
@@ -66,7 +72,8 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
             int status = tpq_client_status(client);
             msg = tpq_client_payload(client);
             int nframes = zmsg_size(msg);
-            zsys_info("tpclt: %d %d %d %d", count, seqno, status, nframes);
+            zsys_info("tpqclt: count: %d seqno: %d status: %d nmsgs: %d",
+                      count, seqno, status, nframes);
 
             count = 0;
             continue;

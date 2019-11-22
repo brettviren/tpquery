@@ -12,7 +12,7 @@ digraph "tpq_server" {
  "connected query" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query</font></td></tr><tr><td align="left" port="r3">handle query</td></tr></table>>];
  "connected" -> "connected query";
  "connected query" -> "connected";
- "connected query is fully late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is fully late</font></td></tr><tr><td align="left" port="r3">set not found</td></tr><tr><td align="left" port="r3">send (error)</td></tr></table>>];
+ "connected query is fully late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is fully late</font></td></tr><tr><td align="left" port="r3">set not found</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
  "connected" -> "connected query is fully late";
  "connected query is fully late" -> "connected";
  "connected query is partly late" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">query is partly late</font></td></tr><tr><td align="left" port="r3">set payload</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];

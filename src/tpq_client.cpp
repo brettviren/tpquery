@@ -59,7 +59,7 @@ client_initialize (client_t *self)
 static void
 client_terminate (client_t *self)
 {
-    //  Destroy properties here
+    zsys_debug("tpq_client: terminating");
 }
 
 
@@ -171,6 +171,7 @@ signal_result (client_t *self)
 static void
 signal_success (client_t *self)
 {
+    zsys_debug("bye");
 }
 
 
@@ -196,12 +197,13 @@ check_if_connection_is_dead (client_t *self)
 static void
 check_status_code (client_t *self)
 {
-    if (tpq_codec_status (self->message) == TPQ_CODEC_COMMAND_INVALID) {
+    const int mstatus = tpq_codec_status (self->message);
+    if (mstatus == TPQ_CODEC_INTERNAL_ERROR) {
         engine_set_next_event (self, command_invalid_event);
+        return;
     }
-    else {
-        engine_set_next_event (self, other_event);
-    }
+    engine_set_next_event (self, other_event);
+
 }
 
 
@@ -212,6 +214,8 @@ check_status_code (client_t *self)
 static void
 signal_internal_error (client_t *self)
 {
+    zsys_error("tpq_client: internal error");
+    tpq_codec_print(self->message);
     zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Internal server error");
     zsock_send (self->msgpipe, "sis", "FAILURE", -1, "Internal server error");
 }
@@ -224,6 +228,8 @@ signal_internal_error (client_t *self)
 static void
 signal_unhandled_error (client_t *self)
 {
+    zsys_error("tpq_client: unhandled error");
+    tpq_codec_print(self->message);
 }
 
 
@@ -235,6 +241,8 @@ signal_unhandled_error (client_t *self)
 static void
 signal_bad_endpoint (client_t *self)
 {
+    zsys_error("tpq_client: bad endpoint");
+    tpq_codec_print(self->message);
 }
 
 

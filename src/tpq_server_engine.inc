@@ -608,11 +608,11 @@ s_client_execute (s_client_t *self, event_t event)
                         set_not_found (&self->client);
                     }
                     if (!self->exception) {
-                        //  send ERROR
+                        //  send RESULT
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send ERROR",
+                            zsys_debug ("%s:         $ send RESULT",
                                 self->log_prefix);
-                        tpq_codec_set_id (self->server->message, TPQ_CODEC_ERROR);
+                        tpq_codec_set_id (self->server->message, TPQ_CODEC_RESULT);
                         tpq_codec_set_routing_id (self->server->message, self->routing_id);
                         tpq_codec_send (self->server->message, self->server->router);
                     }
