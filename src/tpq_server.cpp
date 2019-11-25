@@ -40,6 +40,7 @@ struct payload_t {
     int64_t tstart;
     int64_t tspan;
     uint64_t detid;             // actually 32bit in msg
+    uint32_t count;
     payload_t(zmsg_t* m) : _msg(m) {
         // deserialize to get detid and time interval
         ptmp::data::TPSet tpset;
@@ -47,6 +48,7 @@ struct payload_t {
         tstart = tpset.tstart();
         tspan = tpset.tspan();
         detid = tpset.detid();
+        count = tpset.count();
     }
     ~payload_t() {
         zmsg_destroy(&_msg);
@@ -84,7 +86,7 @@ struct request_t {
 // Any pending requests with keys after queue end may be serviced.
 // Multiple requests may have intervals with coinciding ends.
 typedef std::map<imkey_t, std::vector<request_t> > request_queue_t;
-
+typedef std::unordered_map<uint64_t, uint64_t> count_check_t;
 
 //  This structure defines the context for each running server. Store
 //  whatever properties and structures you need for the server.
@@ -105,6 +107,8 @@ struct _server_t {
 
     request_queue_t *pending;    // pending client requests
 
+    int64_t first_seen;
+    count_check_t* count_check;
 };
 
 //  ---------------------------------------------------------------------------
@@ -143,7 +147,8 @@ server_initialize (server_t *self)
     // need to explicitly construct C++ bits as server_t is simply malloc'ed
     self->iq = new immap_t;
     self->pending = new request_queue_t;
-
+    self->first_seen = 0;
+    self->count_check = new count_check_t;
     self->ingest = NULL;
     return 0;
 }
@@ -163,7 +168,9 @@ server_terminate (server_t *self)
     if (self->pending) {
         delete self->pending;
     }
-
+    if (self->count_check) {
+        delete self->count_check;
+    }
 }
 
 static int
@@ -248,6 +255,7 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
     server_t *self = (server_t *) varg;
     const bool super_verbose = false; // true here for super verbose
     const bool verbose = engine_verbose(self);
+    const bool check_count = true; // make configurable
 
     auto t0 = ptmp::data::now();
 
@@ -258,13 +266,29 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
         auto ptr = std::make_shared<payload_t>(msg);
         // zsys_debug("tpq_server: slurp: %8d %lx %lx",
         //            nslurped, ptr->detid, ptr->detid & self->detmask);
-        if (ptr->detid & self->detmask) {
-            (*self->iq) += std::make_pair(ptr->interval(), imset_t{ptr});
-            ++nslurped;
-        }
-        else {
+        if ( ! (ptr->detid & self->detmask) ) {
             continue;
         }
+
+        (*self->iq) += std::make_pair(ptr->interval(), imset_t{ptr});
+        ++nslurped;
+        if (! self->first_seen) {
+            // keep this just to help debugging.
+            self->first_seen = ptr->tstart;
+        }
+        
+        // tpq doesn't actually care.
+        if (check_count) {    
+            const uint64_t last_count = (*self->count_check)[ptr->detid];
+            if (verbose and last_count and ptr->count - last_count != 1) {
+                zsys_debug("tpq_server: dropped: last: %d, this: %d, "
+                           "detid: 0x%x, tstart: %.3f Mtick",
+                           last_count, ptr->count,
+                           ptr->detid, 1e-6*(ptr->tstart - self->first_seen));
+            }
+            (*self->count_check)[ptr->detid] = ptr->count;
+        }
+
         if (super_verbose) {
             int64_t queue_end = boost::icl::upper((*self->iq));
             int64_t queue_beg = boost::icl::lower((*self->iq));
@@ -277,10 +301,13 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
 
     int64_t queue_end = boost::icl::upper((*self->iq));
     int64_t queue_beg = boost::icl::lower((*self->iq));
-    if (verbose and (nslurped or self->pending->size()))
-        zsys_debug("tpq_server: ingested: %d, queue: %ld + %ld, pending: %ld", 
-                   nslurped, queue_beg, queue_end-queue_beg, self->pending->size());
-
+    if (super_verbose and (nslurped or self->pending->size())) {
+        zsys_debug("tpq_server: ingested: %d, queue: %.3f + %.3f Mticks, pending: %ld", 
+                   nslurped,
+                   1e-6*(queue_beg-self->first_seen),
+                   1e-6*(queue_end-queue_beg),
+                   self->pending->size());
+    }
     // 2. check queued, execute "result available" on client
     std::vector<request_queue_t::iterator> tokill;
     for (auto it = self->pending->begin(); it != self->pending->end(); ++it) {
@@ -290,10 +317,12 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
             break;
         }
         for (auto& req : it->second) {
-            if (verbose) 
-                zsys_debug("tpq_server: ingest: send #%d query %ld + %ld",
-                           req.seqno, req.tstart, tend - req.tstart);
-
+            if (verbose) {
+                zsys_debug("tpq_server: ingest: send #%d query %.3f + %.3f Mtick",
+                           req.seqno,
+                           1e-6*(req.tstart - self->first_seen),
+                           1e-6*(tend - req.tstart));
+            }
             tpq_codec_set_seqno(req.client->message, req.seqno);
             tpq_codec_set_status(req.client->message, 200);
             engine_send_event(req.client, query_is_satisfied_event);
@@ -314,25 +343,28 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
         int64_t nend = boost::icl::upper((*self->iq));
         int64_t nbeg = boost::icl::lower((*self->iq));
         if (verbose)
-            zsys_debug("tpq_server: purge from queue: %ld + %ld -> %ld",
-                       queue_beg, queue_end-queue_beg, new_beg-queue_beg);
+            zsys_debug("tpq_server: purge from queue: %.3f + %.3f -> %.3f + %.3f Mtick",
+                       1e-6*(queue_beg-self->first_seen),
+                       1e-6*(queue_end-queue_beg),
+                       1e-6*(nbeg-self->first_seen),
+                       1e-6*(nend-nbeg));
     }
 
     auto t1 = ptmp::data::now();
 
     /// With a 100ms artifical throttle, the server reduces CPU from
     /// 100% to about 50%.
-    const int64_t throttle = 100000;
-    if (throttle) { 
-        if (t1-t0 < throttle) {
-            auto tosleep = throttle - (t1-t0);
-            ptmp::internals::microsleep(tosleep);
-            t1 = ptmp::data::now();
-        }
-    }
+    // const int64_t throttle = 100000;
+    // if (throttle) { 
+    //     if (t1-t0 < throttle) {
+    //         auto tosleep = throttle - (t1-t0);
+    //         ptmp::internals::microsleep(tosleep);
+    //         t1 = ptmp::data::now();
+    //     }
+    // }
 
     if (verbose)
-        zsys_debug("tpq_server: took %ld", t1-t0);
+        zsys_debug("tpq_server: took %ld us", t1-t0);
     
 
     return 0;
@@ -390,8 +422,12 @@ set_payload (client_t *self)
     int64_t queue_end = boost::icl::upper((*server->iq));
     int64_t queue_beg = boost::icl::lower((*server->iq));
     if (engine_verbose(self->server))
-        zsys_debug("tpq_server: payload %ld %ld with %ld frames from queue %ld %ld",
-                   tbeg, tend, ordered.size(), queue_beg, queue_end);
+        zsys_debug("tpq_server: payload %.3f + %.3f Mtick with %ld frames from queue %.3f + %.3f Mtick",
+                   1e-6*(tbeg - server->first_seen),
+                   1e-6*(tend-tbeg),
+                   ordered.size(),
+                   1e-6*(queue_beg - server->first_seen),
+                   1e-6*(queue_end-queue_beg));
     tpq_codec_set_payload(self->message, &plmsg);
 }
 
@@ -421,8 +457,12 @@ handle_query (client_t *self)
     if (query_end <= queue_beg) {
         // return 404, not found
         if (engine_verbose(self->server))
-            zsys_debug("tpq_server: query: too late: [%ld %ld]",
-                       query_beg-queue_beg, query_end-queue_beg);
+            zsys_debug("tpq_server: query: fully late: "
+                       "query: %.3f + %.3f,  queue: %.3f + %.3f Mtick",
+                       1e-6*(query_beg-self->server->first_seen),
+                       1e-6*(query_end - query_beg),
+                       1e-6*(queue_beg-self->server->first_seen),
+                       1e-6*(queue_end - queue_beg));
         engine_set_next_event(self, query_is_fully_late_event);        
         return;
     }
@@ -431,8 +471,13 @@ handle_query (client_t *self)
         if (query_beg < queue_beg) {
             // return 206, partial content
             if (engine_verbose(self->server))
-                zsys_debug("tpq_server: query: partly late: [%ld %ld]",
-                       query_beg-queue_beg, query_end-queue_beg);
+                zsys_debug("tpq_server: query: partly late: "
+                           "query: %.3f + %.3f,  queue: %.3f + %.3f Mtick",
+                           1e-6*(query_beg-self->server->first_seen),
+                           1e-6*(query_end - query_beg),
+                           1e-6*(queue_beg-self->server->first_seen),
+                           1e-6*(queue_end - queue_beg));
+
             tpq_codec_set_status(self->message, TPQ_CODEC_PARTIAL_CONTENT);
             engine_set_next_event(self, query_is_partly_late_event);
             return;
@@ -440,7 +485,12 @@ handle_query (client_t *self)
         else {
             // return 200, success
             if (engine_verbose(self->server))
-                zsys_debug("tpq_server: query: got one");
+                zsys_debug("tpq_server: query: got one: "
+                           "query: %.3f + %.3f,  queue: %.3f + %.3f Mtick",
+                           1e-6*(query_beg-self->server->first_seen),
+                           1e-6*(query_end - query_beg),
+                           1e-6*(queue_beg-self->server->first_seen),
+                           1e-6*(queue_end - queue_beg));
             tpq_codec_set_status(self->message, TPQ_CODEC_SUCCESS);
             engine_set_next_event(self, query_is_satisfied_event);
             return;
@@ -450,9 +500,12 @@ handle_query (client_t *self)
     else {
         // add to pending
         if (engine_verbose(self->server))
-            zsys_debug("tpq_server: query: wait with %ld + %ld @ %ld",
-                       query_beg, query_end-query_beg,
-                       query_beg - queue_beg );
+            zsys_debug("tpq_server: query: pending: "
+                       "query: %.3f + %.3f,  queue: %.3f + %.3f Mtick",
+                           1e-6*(query_beg-self->server->first_seen),
+                           1e-6*(query_end - query_beg),
+                           1e-6*(queue_beg-self->server->first_seen),
+                           1e-6*(queue_end - queue_beg));
         (*self->server->pending)[query_end].push_back({self, want_detmask, query_beg, seqno});
         return;
     }
@@ -531,6 +584,19 @@ tpq_server_test (bool verbose)
     s_tpset_send(spigot, 6000, 100);
     
     tpq_codec_t *request = tpq_codec_new ();
+
+    {                           // trigger valgrind if this leaks
+        zmsg_t* empty = NULL;
+        empty = zmsg_new();
+        tpq_codec_set_payload(request, &empty);
+        empty = zmsg_new();
+        tpq_codec_set_payload(request, &empty);
+        empty = zmsg_new();
+        tpq_codec_set_payload(request, &empty);
+        empty = zmsg_new();
+        tpq_codec_set_payload(request, &empty);
+    }
+
 
     ptmp::data::TPSet tpset;
     int rc = 0;

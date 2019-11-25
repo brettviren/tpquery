@@ -7,7 +7,9 @@ local ptmp = import "ptmp.jsonnet";
 
 // user serviceable, adapt to local file source
 local links = std.range(1,10);
-local apas = [4,5,6];
+//local links = [1];
+//local apas = [4,5,6];
+local apas = [4];
 local datadir = "/data/fast/bviren/ptmp-dumps/2019-11-12/";
 local filepat = "run10306-felix%(apa)d%(link)02d.dump";
 
@@ -65,10 +67,15 @@ local servers = function(apa) {
                          osocket = null,
                          cfg = {
                              name: "tpqsvc%d"%apa,
-                             verbose: 1,
+                             verbose: 0,
                              service: url_tpqsvc%al,
-                             detmask: "-1", // parsed as string by svc to uint64
-                             queue: {lwm:1.9e8, hwm:2e8},
+                             // which detids to care about.
+                             // parsed as string by svc to uint64 so all bits on.
+                             detmask: "-1",
+                             // low and high water mark for buffer.
+                             // in terms of hardware clock ticks.
+                             // 5e8 * 50 MHz = 10 seconds.
+                             queue: {lwm:5.0e8, hwm:5.5e8},
                          }),
 }.res;
 
@@ -81,7 +88,7 @@ local clients = function(apa) {
                              name: "tpqclt%d"%apa,
                              // fixme: replace with all APAs to up the challenge
                              service: url_tpqsvc%{apa:apa},
-                             minbias: 0.01,
+                             minbias: 0.001,
                          }),
 }.res;
 
@@ -96,27 +103,43 @@ local generators1d = [
     clients,
 ];
 
-local cfgfilepat = "tpqsvc-test-apa%(apa)d.json";
+local cfg_pat = "tpq-test-%(what)s-apa%(apa)d.json";
 local mapgens = function(gens, apa) [g(apa) for g in gens];
 //[mapgens(generators, apa) for apa in apas]
 //std.flattenArrays(mapgens(generators2d, 5))
 
 
-
+local proclines = std.flattenArrays(
+    [
+    [("%(what)s-apa%(apa)d: ptmper "+cfg_pat)%{what:what,apa:apa} for apa in apas]
+     for what in ["src","clt","svc"]]);
 
 {
     // jsonnet -m $outdir -e 'local p=import "tpqsvc-test.jsonnet"; p.cfggen'
     cfggen:: {
-        [cfgfilepat%{apa:apa}] : {
+        [cfg_pat%{what:"src",apa:apa}] : {
             name: "apa%d"%apa,
             plugins: ["tpquery"],
             proxies: std.flattenArrays(mapgens(generators2d, apa))
-                + mapgens(generators1d, apa),
+        } for apa in apas
+    } + {
+        [cfg_pat%{what:"svc",apa:apa}] : {
+            name: "svc%d"%apa,
+            plugins: ["tpquery"],
+            proxies: [servers(apa)],
+        } for apa in apas
+    } + {
+        [cfg_pat%{what:"clt",apa:apa}] : {
+            name: "clt%d"%apa,
+            plugins: ["tpquery"],
+            proxies: [clients(apa)],
         } for apa in apas
     },
 
     // jsonnet -S -e 'local p=import "tpqsvc-test.jsonnet"; p.procgen' > $outdir/Procfile
-    procgen :: std.join('\n',[("apa%(apa)d: ptmper "+cfgfilepat)%{apa:apa} for apa in apas])
+    procgen :: std.join('\n',proclines),
+
+    proclines: proclines,
 }
 
                     

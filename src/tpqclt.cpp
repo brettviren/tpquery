@@ -35,6 +35,7 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
     tpq_client_t* client = tpq_client_new();
     tpq_client_say_hello(client, name.c_str(), server_address.c_str());
 
+    int64_t first_seen = 0;
     size_t count = 0;
     zpoller_t* poller = zpoller_new(pipe, isock, NULL);
     bool got_quit = false;
@@ -56,6 +57,10 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
             ptmp::data::TPSet tpset;
             ptmp::internals::recv(&msg, tpset);
 
+            if (! first_seen) {
+                first_seen = tpset.tstart();
+            }
+
             // 2. query
             // zsys_info("tpqclt: #%d, detid: %ld query: %ld + %d",
             //           count,
@@ -72,8 +77,13 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
             int status = tpq_client_status(client);
             msg = tpq_client_payload(client);
             int nframes = zmsg_size(msg);
-            zsys_info("tpqclt: count: %d seqno: %d status: %d nmsgs: %d",
-                      count, seqno, status, nframes);
+            zsys_info("tpqclt: count: %d, seqno: %d, status: %d, nmsgs: %d, "
+                      "detid: 0x%x, "
+                      "query: %.3f + %.3f MTicks",
+                      count, seqno, status, nframes,
+                      tpset.detid(),
+                      1e-6*(tpset.tstart() - first_seen),
+                      1e-6*(tpset.tspan()));
 
             count = 0;
             continue;
