@@ -4,7 +4,94 @@ This package provides clients and servers that work with [[https://github.com/br
 
 * Installation
 
-Usual.
+TP Query builds and installs via the usual ~autoconf~ mechanism:
+
+#+begin_example
+  $ ./autogen.sh
+  $ ./configure
+  $ make install
+#+end_example
+
+Requires:
+
+- [[https://github.com/brettviren/ptmp][PTMP]]
+- [[https://github.com/zeromq/czmq][CZMQ]]
+- [[https://github.com/zeromq/libzmq][libzmq]]
+
+The build may automatically locate these dependencies on your system
+or you may directly specify their locations with usual ~--with-*~
+options to ~configure~.
+
+* Testing
+
+The TP Query components use PTMP ~ptmper~ program and as such use
+standard PTMP JSON configuration files.  Like with configuring most
+PTMP components, it's easier to write the configuration in Jsonnet and
+compile it to JSON (and other support files).  
+
+TP Query provides a test configuration generator which can be used like:
+
+#+begin_example
+  $ mkdir run && cd run
+  $ cp ../src/selftest-ro/tpqsvc-test.jsonnet mycfg.jsonnet
+  $ emacs mycfg.jsonnet
+  $ jsonnet -J /path/to/ptmp/pyhon/ptmp -m . 'local p=import "mycfg.jsonnet"; p.cfggen'
+  $ jsonnet -J /path/to/ptmp/pyhon/ptmp -S -e 'local p=import "mycfg.jsonnet"' > Procfile
+#+end_example
+
+Notes:
+
+- edit a copy of the Jsonnet file set input files, number of APAs and
+  links per APA.
+
+- The first Jsonnet compilation produces a number of JSON files, each
+  to be given to a separate instance of the ~ptmper~ program.
+
+- The second Jsonnet compilation produces control file for [[https://github.com/brettviren/shoreman][shoreman]]
+  (or equivalent Foreman implementation).  
+
+Examine the JSON files to see detailed configuration for each ~ptmper~
+job and the short ~Procfile~ to see the command lines.  To run the
+entire suite simply type:
+
+#+begin_example
+  $ shoreman
+#+end_example
+
+The server and client components will run forever.  A Ctrl-C (or a
+few) will kill all programs.  
+
+This test sets up a small graph where each APA participating
+contributes a subgraph as shown (also as [[src/selftest-ro/tpqsvc-test.pdf][PDF]]):
+
+[[file:src/selftest-ro/tpqsvc-test.png]]
+
+
+The (sub)subgraph in the box is per-file (per FELIX link).  In full,
+ten of these are present for an APA's worth of files.  The remainder
+is per-APA which subscribes to the split ~TPSet~ streams.  The
+~bulk_window~ branch uses a relatively large windowing (1 ms in the
+default configuration) in order to reduce the number of individual
+entries in the interval tree (which is O(n log(n))).  The ~trig_window~
+branch emulates the nominal windowing for the horizontal muon
+self-trigger at ProtoDUNE.  
+
+The ~tpqsvc~ is a PTMP "agent" aka "proxy" component which houses the TP
+Query service actor (see below).  The ~tpqclt~ is another PTMP "agent".
+It is not generally useful beyond testing and it emulates the combined
+roles of trigger candidate producer, the module level trigger, the
+data flow orchestrator and an event builder.  It will periodically
+trigger a query to the service based on receiving an "Nth" input
+message.  When the ~tpqclt~ subscribes to multiple link sources and
+because there is no "zipper" component to order that input it will
+tend to "trigger" somewhat sporadically leading to a variety of return
+status codes (200, 206 and 404, see below).
+
+TODO: Running N APA file sources in this test will by default simply
+have N independent tests.  A variant test includes having each ~tpqclt~
+query each ~tpqsvc~ which will require exercising the asynchronous query
+interface that is naturally supported by ~tpq_client~.
+
 
 * Concepts
 
@@ -14,94 +101,94 @@ fixed-depth buffer holding recent entries ordered by their time
 intervals and detector ID masks.
 
 
-* Server
+** Server
 
-The ~tpq_server~ is really a kind of broker.  It receives streams of
-~TPSet~ messages from its ingest socket (eg a SUB or a PULL).  It's
-server socket (ROUTER) accepts queries.  It will attempt to return all
-~TPSet~ messages with intervals overlapping the interval of the query.
-If a query arrives to the server before the requested time interval
-has been seen in the input stream, the server will delay a response
-until the stream catches up.
+ The ~tpq_server~ is really a kind of broker.  It receives streams of
+ ~TPSet~ messages from its ingest socket (eg a SUB or a PULL).  It's
+ server socket (ROUTER) accepts queries.  It will attempt to return all
+ ~TPSet~ messages with intervals overlapping the interval of the query.
+ If a query arrives to the server before the requested time interval
+ has been seen in the input stream, the server will delay a response
+ until the stream catches up.
 
-** Input
+*** Input
 
-The server expects ingests streams of messages holding ~TPSet~ payload
-objects.  This stream is not required to be time ordered however, out
-of order messages (such as are natural if the input is multiplexed)
-will lead to (otherwise) premature queue purges and effectively reduce
-the depth of the queue.
+ The server expects ingests streams of messages holding ~TPSet~ payload
+ objects.  This stream is not required to be time ordered however, out
+ of order messages (such as are natural if the input is multiplexed)
+ will lead to (otherwise) premature queue purges and effectively reduce
+ the depth of the queue.
 
-** Intervals
+*** Intervals
 
-The queue is based on time intervals defined in terms of integer *data*
-time ticks (and *not* real-time).  Intervals are taken as /right-open/
-meaning they include the lower bound but *not* their upper bound.  An
-interval is defined in terms of a start time (eg ~TPSet.tstart~) and a
-relative time span (eg ~TPSet.tspan~).  Thus an interval with a ~tstart~
-of 1000 and a ~tspan~ of 100 includes all discrete clock counts from
-1000 to 1099 inclusive.  The tick 1100 is outside of the first
-interval and so that interval is not overlapping with another interval
-with a ~tstart~ of 1100.
+ The queue is based on time intervals defined in terms of integer *data*
+ time ticks (and *not* real-time).  Intervals are taken as /right-open/
+ meaning they include the lower bound but *not* their upper bound.  An
+ interval is defined in terms of a start time (eg ~TPSet.tstart~) and a
+ relative time span (eg ~TPSet.tspan~).  Thus an interval with a ~tstart~
+ of 1000 and a ~tspan~ of 100 includes all discrete clock counts from
+ 1000 to 1099 inclusive.  The tick 1100 is outside of the first
+ interval and so that interval is not overlapping with another interval
+ with a ~tstart~ of 1100.
 
-The arrow of time points *from* small values ("begin", "left", "before")
-*to* large values ("end", "right", "after").  An interval may be fully
-or partly before or after another depending on if they do not or do
-overlap, respectively.  An interval which is a subset of another is
-said to be "inside".  Here, and in the code, the terms /early/ and /late/
-are used when referring to relative real-time events.  An event is
-/early/ if it occurs before another event and vice versa for /late/.
-Intervals, per se, are never said to be /early/ nor /late/.
+ The arrow of time points *from* small values ("begin", "left", "before")
+ *to* large values ("end", "right", "after").  An interval may be fully
+ or partly before or after another depending on if they do not or do
+ overlap, respectively.  An interval which is a subset of another is
+ said to be "inside".  Here, and in the code, the terms /early/ and /late/
+ are used when referring to relative real-time events.  An event is
+ /early/ if it occurs before another event and vice versa for /late/.
+ Intervals, per se, are never said to be /early/ nor /late/.
 
-** Queue
+*** Queue
 
-The queue buffers ~TPSet~ objects over a configurable interval.  The
-queue will be purged of older entries as new ones are added.  It is
-defined as a [[https://www.boost.org/doc/libs/1_71_0/libs/icl/doc/html/index.html][Boost Interval Container]], specifically an interval map.
+ The queue buffers ~TPSet~ objects over a configurable interval.  The
+ queue will be purged of older entries as new ones are added.  It is
+ defined as a [[https://www.boost.org/doc/libs/1_71_0/libs/icl/doc/html/index.html][Boost Interval Container]], specifically an interval map.
 
-** Query 
+*** Query 
 
-A query requests queued ~TPSet~ objects that have intervals with any
-overlap with a requested interval and which match a given detector ID
-mask.  Satisfying this query confronts an inherent race condition
-involving the (real) time at which a request arrives, the requested
-interval and the current interval covered by the queue, as fed by the
-input stream of ~TPSet~ messages.  This race is handled differently
-depending on the overlap.
+ A query requests queued ~TPSet~ objects that have intervals with any
+ overlap with a requested interval and which match a given detector ID
+ mask.  Satisfying this query confronts an inherent race condition
+ involving the (real) time at which a request arrives, the requested
+ interval and the current interval covered by the queue, as fed by the
+ input stream of ~TPSet~ messages.  This race is handled differently
+ depending on the overlap.
 
-- if a query interval is inside the queue interval, return immediately
-  with results and status code 200, "success".
+ - if a query interval is inside the queue interval, return immediately
+   with results and status code 200, "success".
 
-- if a query interval is fully before the queue interval (a fully /late/
-  query), return immediately with empty results and status code 404
-  "not found".
+ - if a query interval is fully before the queue interval (a fully /late/
+   query), return immediately with empty results and status code 404
+   "not found".
 
-- if a query interval is partly before the queue interval (a partly
-  /late/ query), return immediately with partial results and status code
-  206 "partial content".
+ - if a query interval is partly before the queue interval (a partly
+   /late/ query), return immediately with partial results and status code
+   206 "partial content".
 
-- if a query interval end is after the queue interval end the server
-  will hold the query until enough new ~TPSet~ objects are ingested such
-  that the queue interval end is after the query interval end.  At
-  that later time, a result will be returned.  At that (real) time, if
-  the query interval is inside the queue interval a status code 200 is
-  returned, else a status code 206 "partial content" is returned.
+ - if a query interval end is after the queue interval end the server
+   will hold the query until enough new ~TPSet~ objects are ingested such
+   that the queue interval end is after the query interval end.  At
+   that later time, a result will be returned.  At that (real) time, if
+   the query interval is inside the queue interval a status code 200 is
+   returned, else a status code 206 "partial content" is returned.
 
-Upon satisfying an interval query, ~TPSet~ objects are checked against
-the requested detector ID mask and only those which match are
-returned.  This matching will not change the return code.  That is, a
-200 or 206 return may accompany an empty set of ~TPSet~ objects.
+ Upon satisfying an interval query, ~TPSet~ objects are checked against
+ the requested detector ID mask and only those which match are
+ returned.  This matching will not change the return code.  That is, a
+ 200 or 206 return may accompany an empty set of ~TPSet~ objects.
 
-If the requested ID mask is not consistent with the server's coverage
-mask an error message is returned immediately (500 "command invalid")
-and no intervals are considered.
+ If the requested ID mask is not consistent with the server's coverage
+ mask an error message is returned immediately (500 "command invalid")
+ and no intervals are considered.
 
-* Client 
+** Client 
 
-A TPQ client is provided as a C "class" (opaque structure plus
-associated function methods).  This interface provides a synchronous
-query/reply method (~tpq_client_query()~).  Asynchronous query/reply may
-be performed by sending command messages and listening for responses
-on the client's actor pipe. 
+ A TPQ client is provided as a C "class" (opaque structure plus
+ associated function methods).  This interface provides a synchronous
+ query/reply method (~tpq_client_query()~).  Asynchronous query/reply may
+ be performed by sending command messages and listening for responses
+ on the client's actor pipe. 
 
 
