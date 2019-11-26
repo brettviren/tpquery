@@ -309,6 +309,7 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
                    self->pending->size());
     }
     // 2. check queued, execute "result available" on client
+    int nsent = 0;
     std::vector<request_queue_t::iterator> tokill;
     for (auto it = self->pending->begin(); it != self->pending->end(); ++it) {
         int64_t tend = it->first;
@@ -326,6 +327,7 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
             tpq_codec_set_seqno(req.client->message, req.seqno);
             tpq_codec_set_status(req.client->message, 200);
             engine_send_event(req.client, query_is_satisfied_event);
+            ++nsent;
         }
         tokill.push_back(it);
     }
@@ -334,16 +336,21 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
     }
 
     // 3. maybe purge.
+    bool didpurge = false;
     const int64_t qspan = queue_end - queue_beg;
     if (qspan > self->iq_hwm) {
         const int64_t new_beg = queue_end - self->iq_lwm;
         // remove anything prior to new beggining
         (*self->iq) -= iminterval_t::right_open(0, new_beg);
+        didpurge = true;
 
         int64_t nend = boost::icl::upper((*self->iq));
         int64_t nbeg = boost::icl::lower((*self->iq));
         if (verbose)
-            zsys_debug("tpq_server: purge from queue: %.3f + %.3f -> %.3f + %.3f Mtick",
+            zsys_debug("tpq_server: purge from queue: "
+                       "[nelem: %ld, niter: %ld] "
+                       "%.3f + %.3f -> %.3f + %.3f Mtick",
+                       self->iq->size(), self->iq->iterative_size(),
                        1e-6*(queue_beg-self->first_seen),
                        1e-6*(queue_end-queue_beg),
                        1e-6*(nbeg-self->first_seen),
@@ -364,7 +371,11 @@ s_server_handle_ingest(zloop_t* loop, zsock_t* ingest, void* varg)
     // }
 
     if (verbose)
-        zsys_debug("tpq_server: took %ld us", t1-t0);
+        zsys_debug("tpq_server: loop in %6ld us, "
+                   "ingested %5ld at %6.1f kHz, purged %d, sent %d",
+                   t1-t0,
+                   nslurped, (1000.0*nslurped)/(t1-t0),
+                   didpurge, nsent);
     
 
     return 0;

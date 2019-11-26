@@ -39,6 +39,7 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
     size_t count = 0;
     zpoller_t* poller = zpoller_new(pipe, isock, NULL);
     bool got_quit = false;
+    uint64_t nrecv = 0;
     while (!zsys_interrupted) {
         void * which = zpoller_wait(poller, -1);
 
@@ -72,15 +73,18 @@ void tpqclt_actor(zsock_t* pipe, void* vargs)
                                       tpset.tspan(),
                                       tpset.detid(),
                                       1000);
+            assert (rc >= 0);
+
             // 3. do something with it
             int seqno = tpq_client_seqno(client);
             int status = tpq_client_status(client);
             msg = tpq_client_payload(client);
             int nframes = zmsg_size(msg);
-            zsys_info("tpqclt: count: %d, seqno: %d, status: %d, nmsgs: %d, "
+            ++nrecv;
+            zsys_info("tpqclt: count: %d, seqno: %d, nrecv: %d, status: %d, nmsgs: %d, "
                       "detid: 0x%x, "
                       "query: %.3f + %.3f MTicks",
-                      count, seqno, status, nframes,
+                      count, seqno, nrecv, status, nframes,
                       tpset.detid(),
                       1e-6*(tpset.tstart() - first_seen),
                       1e-6*(tpset.tspan()));

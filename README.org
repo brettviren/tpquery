@@ -8,56 +8,56 @@ Usual.
 
 * Concepts
 
-The trigger primitive queue (TPQ) acts as a random-access ring buffer
-with entries ordered by ~TPSet.tstart~.  ~TPSet~ messages flow into this
-queue and are held for some time.  The queue is limited by a maximum
-number of messages (to avoid memory exhaustion) and thus the its
-entries may span a variable time during operations.
-
-
+The trigger primitive queue (TPQ) acts as a sparse, random-access,
+fixed-depth buffer holding recent entries ordered by their time
+(~TPSet.tstart~).  Entries are stored and queries are made based on time
+intervals and detector ID masks.
 
 
 * Server
 
 The ~tpq_server~ is really a kind of broker.  It receives streams of
-~TPSet~ messages from its ingest socket (eg SUB or PULL).  It's server
-socket (ROUTER) accepts queries based on a ~tstart~ and a ~tspan~.  It
-will attempt to return all ~TPSet~ messages that overlap the requested
-time span.
+~TPSet~ messages from its ingest socket (eg a SUB or a PULL).  It's
+server socket (ROUTER) accepts queries.  It will attempt to return all
+~TPSet~ messages with intervals overlapping the interval of the query.
+If a query arrives to the server before the requested time interval
+has been seen in the input stream, the server will delay a response
+until the stream catches up.
 
 ** Input
 
 The server expects ingests streams of messages holding ~TPSet~ payload
-objects.   This stream is required to be ordered by ~TPSet.tstart~.
+objects.  This stream is not required to be time ordered however, out
+of order messages (such as are natural if the input is multiplexed)
+will lead to (otherwise) premature queue purges and effectively reduce
+the depth of the queue.
 
 ** Intervals
 
-The queue is based on *data* time intervals (and *not* real-time).
-Intervals are taken as /right-open/ meaning they include the lower bound
-but not their upper bound.  They are specified in terms of data time
-(eg 50 MHz clock ticks) counted as integral values.  An interval is
-defined in terms of a start time (eg ~TPSet.tstart~) and a time span (eg
-~TPSet.tspan~).  Thus an interval with a ~tstart~ of 1000 and a ~tspan~ of
-100 includes all discrete clock counts from 1000 to 1099 inclusive.
-The tick 1100 is outside of the interval and so that interval is not
-overlapping with another with a ~tstart~ of 1100.
+The queue is based on time intervals defined in terms of integer *data*
+time ticks (and *not* real-time).  Intervals are taken as /right-open/
+meaning they include the lower bound but *not* their upper bound.  An
+interval is defined in terms of a start time (eg ~TPSet.tstart~) and a
+relative time span (eg ~TPSet.tspan~).  Thus an interval with a ~tstart~
+of 1000 and a ~tspan~ of 100 includes all discrete clock counts from
+1000 to 1099 inclusive.  The tick 1100 is outside of the first
+interval and so that interval is not overlapping with another interval
+with a ~tstart~ of 1100.
 
 The arrow of time points *from* small values ("begin", "left", "before")
 *to* large values ("end", "right", "after").  An interval may be fully
 or partly before or after another depending on if they do not or do
 overlap, respectively.  An interval which is a subset of another is
-said to be "inside".  
-
-The terms /early/ and /late/ may only be used when referring to relative
-real-time events.  An event is /early/ if it occurs before another event
-and vice versa for /late/.  Intervals, per se, are never said to be
-/early/ nor /late/.
-
+said to be "inside".  Here, and in the code, the terms /early/ and /late/
+are used when referring to relative real-time events.  An event is
+/early/ if it occurs before another event and vice versa for /late/.
+Intervals, per se, are never said to be /early/ nor /late/.
 
 ** Queue
 
 The queue buffers ~TPSet~ objects over a configurable interval.  The
-queue will be purged of older entries as new ones are added.
+queue will be purged of older entries as new ones are added.  It is
+defined as a [[https://www.boost.org/doc/libs/1_71_0/libs/icl/doc/html/index.html][Boost Interval Container]], specifically an interval map.
 
 ** Query 
 
@@ -65,8 +65,9 @@ A query requests queued ~TPSet~ objects that have intervals with any
 overlap with a requested interval and which match a given detector ID
 mask.  Satisfying this query confronts an inherent race condition
 involving the (real) time at which a request arrives, the requested
-interval and the current interval covered by the queue.  This race is
-handled differently depending on the overlap.
+interval and the current interval covered by the queue, as fed by the
+input stream of ~TPSet~ messages.  This race is handled differently
+depending on the overlap.
 
 - if a query interval is inside the queue interval, return immediately
   with results and status code 200, "success".
@@ -96,3 +97,11 @@ mask an error message is returned immediately (500 "command invalid")
 and no intervals are considered.
 
 * Client 
+
+A TPQ client is provided as a C "class" (opaque structure plus
+associated function methods).  This interface provides a synchronous
+query/reply method (~tpq_client_query()~).  Asynchronous query/reply may
+be performed by sending command messages and listening for responses
+on the client's actor pipe. 
+
+

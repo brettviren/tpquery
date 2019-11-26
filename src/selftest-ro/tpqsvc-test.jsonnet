@@ -67,7 +67,7 @@ local servers = function(apa) {
                          osocket = null,
                          cfg = {
                              name: "tpqsvc%d"%apa,
-                             verbose: 0,
+                             verbose: 1,
                              service: url_tpqsvc%al,
                              // which detids to care about.
                              // parsed as string by svc to uint64 so all bits on.
